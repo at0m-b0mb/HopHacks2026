@@ -195,7 +195,13 @@ body {
      plain 1fr track refuses to shrink below that and blows the grid
      off the page. minmax(0, …) lets the column be as narrow as the
      layout needs. */
-  grid-template-columns: minmax(20ch, 36ch) minmax(0, 1fr);
+  /* Narrower than it was. The text is now the spine of the argument
+     rather than the whole of it — the detail is in the narration and
+     the method note — so the column only has to hold a heading, a
+     sentence of orientation and the finding. Everything it gives up
+     goes to the drawing, which is the thing that cannot be made
+     smaller without losing information. */
+  grid-template-columns: minmax(18ch, 29ch) minmax(0, 1fr);
   gap: var(--gutter);
   padding: 0 var(--gutter);
   align-items: start;
@@ -696,12 +702,10 @@ body {
 
       <article class="step" data-stage="0">
         <h2>One paper</h2>
-        <p>Every thin arc is a single citation, leaving the paper on the day
-          it was published and landing in the year it was made. Columns are
-          years; their height is how many citations that year brought.</p>
-        <p>The stamp falls on the year the journal declared the result
-          invalid. Everything pale happened while the paper was still
-          standing. Everything red happened after.</p>
+        <p>Every thin arc is one citation, leaving the paper the day it was
+          published and landing in the year it was made. The stamp falls on
+          the year the journal declared the result invalid — pale before,
+          red after.</p>
         <p class="learn">What it shows — this paper was cited
           <b>950 times after it was retracted</b>, against 936 before. Half
           its citation life happened after it was withdrawn.</p>
@@ -710,27 +714,21 @@ body {
       <article class="step" data-stage="1">
         <h2>Where in science this happens</h2>
         <p>3.4 million biomedical papers, placed by what they are about.
-          Neighbours are papers on the same subject. Pale points are the
-          literature; red points are the retracted ones.</p>
+          Neighbours share a subject; the red ones were retracted.</p>
         <p class="learn">What it shows — the red is not spread evenly.
           Against a baseline rate of 0.057%, the worst neighbourhood runs at
           <b>10.7%, or 188× the average</b>, and <b>half of all retractions
           sit in 4.3% of the map</b>. Two thirds of neighbourhoods have none
           at all.</p>
-        <p class="caveat">This map is built from text similarity, so it shows
-          that some <em>subjects</em> are far riskier than others — not yet
-          that some research groups are. Those are different graphs.</p>
       </article>
 
       <article class="step" data-stage="2">
         <h2>The ring nobody counts</h2>
-        <p>Every count so far has been of papers citing the retracted
-          paper <em>directly</em> — authors who at least had it in their
-          hands. The tall columns here are the ring beyond that: papers
-          citing one of <em>those</em>. Their authors have no reason to know
-          a retraction sits anywhere in their reference chain.</p>
-        <p>Both series are drawn at the same scale. The direct citations are
-          the dark slivers along the bottom.</p>
+        <p>Everything so far counted papers citing the retracted paper
+          <em>directly</em> — authors who at least had it in their hands.
+          The tall columns are the ring beyond: papers citing one of
+          <em>those</em>, whose authors have no reason to know. Same scale;
+          direct citation is the slivers along the bottom.</p>
         <p class="learn">What it shows — direct citation
           <b>falls</b> after retraction, from 307 a year to 12. Second-hand
           citation <b>keeps climbing</b>, from 2,926 in 2018 to 9,318 by 2024.
@@ -743,12 +741,10 @@ body {
 
       <article class="step" data-stage="3">
         <h2>The number we defend</h2>
-        <p>63% of citations arriving after retraction is the headline, and
-          it is partly an artefact. The median paper here spent two years
-          valid and four years retracted. It simply had longer.</p>
-        <p>So divide by the time available. Every dot is one paper:
-          citations per year before retraction across, citations per year
-          after it up. The diagonal is the line where nothing changed.</p>
+        <p>63% is partly an artefact: the median paper spent two years valid
+          and four retracted, so it simply had longer. Divide by the time
+          available instead. One dot per paper — rate before across, rate
+          after up — and the diagonal is where nothing changed.</p>
         <p class="learn">What it shows — most papers fall
           <b>below</b> the line, so retraction does slow them. The median
           lands at <b>0.62&times;</b>: about a third off the rate. But
@@ -756,11 +752,6 @@ body {
           alive.</p>
         <p class="learn">Retraction slows the spread by about a third. It
           does not stop it.</p>
-        <p class="note">205 papers, not 300. A rate before retraction needs
-          at least one year of being valid, and 87 of these were retracted
-          in the same year they were published; 8 more were never cited
-          before. Both axes are logarithmic, so each step is ten times the
-          one before.</p>
       </article>
 
     </div>
@@ -779,7 +770,12 @@ body {
       Including them would have inflated the posthumous share in our own
       favour, so they are dropped, and every surviving paper's yearly counts
       must reconcile with its headline total.</p>
-    <p><b>What this does not claim.</b> Retracted is not the same as
+    <p><b>What this does not claim. The map is built from text
+      similarity, so it shows that some <em>subjects</em> are riskier than
+      others, not that some research groups are — those are different
+      graphs. The rate view covers 205 of the 300 papers: a rate before
+      retraction needs at least one valid year, and 87 of these were
+      retracted in the year they were published, 8 more never cited before.</b> Retracted is not the same as
       fraudulent. A second-hand citation is reachability, not influence — the
       citing paper may be citing its source for something unrelated. The
       second ring is also structurally later in time, so some of its
@@ -3468,6 +3464,19 @@ document.getElementById('next-paper')
    -------------------------------------------------------------------- */
 
 new ResizeObserver(resize).observe(canvas);
+
+/* AND AGAIN ONCE THE FONTS ARRIVE.
+
+   The text column is measured in ch, so its width depends on the
+   font that is actually loaded. Google Fonts land after first paint,
+   the column changes width, and the canvas beside it changes with
+   it — but the backing store keeps the size it was given before.
+   The drawing was then scaled for 968px while occupying 1021px:
+   stretched, soft, and 53px of picture narrower than the space it
+   had. One more measurement once the fonts have settled. */
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(resize);
+}
 
 /* ...and size it once, explicitly, right now.
 
