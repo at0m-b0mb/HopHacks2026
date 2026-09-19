@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" fill="#F1EBDF"/>
+  <!-- the axis, the publication dot, and the retraction the citations cross -->
+  <line x1="8" y1="46" x2="56" y2="46" stroke="#D6CCB8" stroke-width="2"/>
+  <circle cx="12" cy="46" r="3.5" fill="#1F1A15"/>
+  <path d="M12 46 Q24 20 36 46" fill="none" stroke="#B9AE9C" stroke-width="2"/>
+  <path d="M12 46 Q28 14 46 46" fill="none" stroke="#B02A1F" stroke-width="2"/>
+  <path d="M12 46 Q32 10 54 46" fill="none" stroke="#B02A1F" stroke-width="2"/>
+  <line x1="33" y1="12" x2="33" y2="46" stroke="#B02A1F" stroke-width="2.5"/>
+</svg>

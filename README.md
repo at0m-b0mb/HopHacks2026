@@ -230,6 +230,8 @@ the data starts in 2012 rather than 1995.
 |---|---|
 | `index.html` | the whole page — vanilla JS, no build step, no dependencies |
 | `banner.svg` | the mark at the top of this file, drawn from the same rules as the page |
+| `og.png` | the link preview, rendered from that banner |
+| `favicon.svg` | the tab mark: an axis, a publication dot, a retraction |
 | `papers.json` | 300 retracted papers with citations per year |
 | `landscape.json` | 3.4M paper positions, 1,925 retracted, per-neighbourhood rates, 94 subject labels |
 | `tree_hero.json` | the featured paper's two-generation transmission tree |
