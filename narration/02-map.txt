@@ -1,0 +1,11 @@
+So the next question is whether this happens everywhere, or somewhere.
+
+This is three and a half million biomedical papers, positioned by what they are about. Neighbours here are neighbours in subject matter.
+
+Across the whole map, about one paper in every eighteen hundred is retracted. Point zero five seven percent.
+
+But it is not spread evenly. In the worst neighbourhood, more than one paper in ten has been retracted — a hundred and eighty-eight times the background rate. Half of every retraction we found sits in just over four percent of the map.
+
+Hover it, and it tells you what that neighbourhood is.
+
+It's pharmacology.

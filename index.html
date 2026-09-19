@@ -596,6 +596,8 @@ body {
         <button type="button" id="reset">Reset</button>
         <button type="button" class="paper-step" id="next-paper"
                 aria-label="Next paper">&rsaquo;</button>
+        <button type="button" id="listen" hidden
+                aria-pressed="false">Listen</button>
         <p class="prompt swap" id="prompt"></p>
       </nav>
     </div>
@@ -2764,6 +2766,8 @@ function goToStage(stage) {
   if (VIEW_SLUG[stage]) {
     history.replaceState(null, '', '#' + VIEW_SLUG[stage]);
   }
+
+  narrate();
 }
 
 const stepWatcher = new IntersectionObserver(entries => {
@@ -3031,6 +3035,97 @@ function readRatesAt(clientX, clientY) {
     `${rate(best.after)}/yr after \u00b7 ${verdict}`);
   draw();
 }
+
+
+/* --------------------------------------------------------------------
+   NARRATION
+
+   The page can read itself. One recording per view, so the audio
+   follows the reader down the page instead of running on its own
+   clock and drifting out of step with what is on screen.
+
+   OFF BY DEFAULT, and the button is the point: browsers refuse to
+   start audio without a gesture, and a page that talks at you
+   unasked is worse than one that stays quiet. The click is both the
+   permission and the request.
+
+   The button only appears if the audio is actually there. The files
+   are rendered by make_narration.py, which needs an API key, so a
+   clone without one gets the page in silence rather than a control
+   that does nothing.
+   -------------------------------------------------------------------- */
+
+const NARRATION = [
+  'audio/00-opening.mp3',   // the opening, above the first step
+  'audio/01-paper.mp3',     // stage 0
+  'audio/02-map.mp3',       // stage 1
+  'audio/03-rings.mp3',     // stage 2
+  'audio/04-rates.mp3',     // stage 3
+];
+
+const listenEl = document.getElementById('listen');
+
+let narrationOn = false;
+let narrationAt = -1;          // segment currently playing; -1 is none
+let narrationTracks = [];
+
+/* Which recording belongs to what is on screen. No step is crossing
+   the observer's band while the opening is up, so that absence IS
+   the opening; every other section is its stage, shifted by one. */
+function narrationSection() {
+  return document.querySelector('.step.active') ? anim.stageTarget + 1 : 0;
+}
+
+function narrate() {
+  if (!narrationOn) return;
+
+  const i = narrationSection();
+  if (i === narrationAt) return;   // already saying this one
+
+  narrationTracks.forEach(a => a.pause());
+  narrationAt = i;
+
+  const track = narrationTracks[i];
+  if (!track) return;
+
+  track.currentTime = 0;
+  // Rejects if the browser declines or the file is missing. Neither
+  // is worth interrupting the page for.
+  track.play().catch(() => {});
+}
+
+listenEl.addEventListener('click', () => {
+  narrationOn = !narrationOn;
+
+  listenEl.textContent = narrationOn ? 'Stop' : 'Listen';
+  listenEl.setAttribute('aria-pressed', String(narrationOn));
+
+  if (narrationOn) {
+    narrate();
+  } else {
+    narrationTracks.forEach(a => a.pause());
+    narrationAt = -1;
+  }
+});
+
+/* Scrolling back up to the opening is not a stage change, so the
+   observer never fires for it. Checked here instead; narrate() exits
+   immediately when the section has not actually changed. */
+window.addEventListener('scroll', () => narrate(), { passive: true });
+
+/* Offer the control only once the first file has answered. HEAD, so
+   this costs a header exchange rather than the audio itself. */
+fetch(NARRATION[0], { method: 'HEAD' })
+  .then(r => {
+    if (!r.ok) return;
+    narrationTracks = NARRATION.map(src => {
+      const a = new Audio(src);
+      a.preload = 'none';
+      return a;
+    });
+    listenEl.hidden = false;
+  })
+  .catch(() => {});
 
 
 /* One entry point; the view decides what a cursor position means. */

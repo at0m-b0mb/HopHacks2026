@@ -209,6 +209,8 @@ the data starts in 2012 rather than 1995.
 | `fetch_contagion.py` | counts the second ring, deduplicated as a set of work ids |
 | `fetch_tree.py` | the drawable two-generation tree for one paper |
 | `fetch_landscape.py` | crawls the Nomic map (needs `pyarrow`) |
+| `narration/*.txt` | what the page says out loud, one file per view |
+| `make_narration.py` | renders those to `audio/*.mp3` via ElevenLabs |
 
 The page fetches only `papers.json`, `tree_hero.json` and `landscape.json`.
 **No API call happens at view time** — it runs with no network at all, apart
@@ -227,6 +229,18 @@ python3 fetch_tree.py      W2144590229 --out tree_hero.json
 python3 -m venv venv && ./venv/bin/pip install pyarrow
 ./venv/bin/python fetch_landscape.py --depth 3
 ```
+
+The page can also read itself aloud, one recording per view:
+
+```bash
+export ELEVENLABS_API_KEY=...
+python3 make_narration.py --voices          # pick one
+python3 make_narration.py --voice <voice_id>
+```
+
+That writes `audio/`. The Listen control only appears if those files
+are present, so a clone without an API key gets the page in silence
+rather than a button that does nothing.
 
 A key is worth the minute it takes. Without one, requests count against a
 daily budget shared by everyone on your IP address, and we exhausted it.
