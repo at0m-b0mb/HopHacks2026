@@ -18,6 +18,15 @@
   --stamp:    #B02A1F;
   --rule:     #D6CCB8;
 
+  /* A second tint for each of the two citation colours. Adjacent
+     years alternate between a family's two tints, so where one
+     year's bundle of arcs ends and the next begins is visible
+     instead of being one continuous wash. It carries no meaning of
+     its own: which SIDE of the retraction a citation is on is still
+     the only thing colour is allowed to say. */
+  --faded-alt: #A79B87;
+  --stamp-alt: #8E2118;
+
   /* MOTION GRAMMAR, taken from the track's own site so the piece feels
      native to the people judging it. Their whole vocabulary is ONE
      keyframe: content rises 26px while fading in, over 750ms, on a
@@ -585,7 +594,7 @@ body {
         <p class="learn">What it shows — the red is not spread evenly.
           Against a baseline rate of 0.057%, the worst neighbourhood runs at
           <b>10.7%, or 188× the average</b>, and <b>half of all retractions
-          sit in 5.2% of the map</b>. Two thirds of neighbourhoods have none
+          sit in 4.3% of the map</b>. Two thirds of neighbourhoods have none
           at all.</p>
         <p class="caveat">This map is built from text similarity, so it shows
           that some <em>subjects</em> are far riskier than others — not yet
@@ -684,8 +693,20 @@ const FAN_SEED   = 20260919;     // fixed, so the fan is identical every run
    where the before/after split lives: a dot sits at the year it
    happened and cannot be dragged across the verdict by the arc that
    carried it there. */
-const DOT_R_CITE = 1.6;
-const DOT_ALPHA  = 0.85;         // dots sit above the lines, so they can be
+const DOT_R_CITE = 1.9;
+/* Every dot is punched out of the arcs beneath it with a disc of
+   paper before it is drawn. Thousands of arcs cross the same pixels,
+   and a dot the same colour as its own trail simply vanishes into
+   the mass. The dots are the data; the arcs are only how it got
+   there, so the dots win. */
+const DOT_HALO_R     = 0.65;     // how far the knockout reaches past the dot
+const DOT_HALO_ALPHA = 0.7;
+/* Both kept deliberately small. A wide, opaque knockout separates the
+   dots perfectly and ruins the picture: every landing becomes a white
+   ring, and a few thousand of them read as speckle rather than as a
+   fan. The halo only has to break the dot's edge away from the trails
+   directly under it, which is well under a pixel of clearance. */
+const DOT_ALPHA  = 0.95;         // dots sit above the lines, so they can be
                                  // nearly solid without closing the fan up
 const DOT_R      = 3;
 
@@ -753,6 +774,8 @@ const MAP_STAGGER        = 0.55; // how much of that is spent staggering them
 const MAP_DOT             = 1.3;  // background paper, in px
 const MAP_FIELD_ALPHA     = 0.30;
 const MAP_RETRACTED       = 2.9;  // retracted paper, in px
+const MAP_HALO       = 0.6;   // paper cleared around each retracted mark
+const MAP_HALO_ALPHA = 0.75;
 const MAP_RETRACTED_ALPHA = 0.88;
 
 const ARC_WIDTH    = 0.5;   // the travel trail, fainter than its landing
@@ -779,7 +802,9 @@ const COLOR = {
   ink:     readVar('--ink'),
   inkSoft: readVar('--ink-soft'),
   faded:   readVar('--faded'),
+  fadedAlt: readVar('--faded-alt'),
   stamp:   readVar('--stamp'),
+  stampAlt: readVar('--stamp-alt'),
   rule:    readVar('--rule'),
 };
 
@@ -1283,10 +1308,21 @@ function drawFan(g) {
      citation had not happened yet. */
   const arcAlpha = ARC_ALPHA * (0.6 + 0.4 * VIEW.dim);
 
-  function sweep(onlyAfter) {
+  function sweep(onlyAfter, tints) {
+    // Whichever tint the last arc used, so strokeStyle is only
+    // reassigned on a year boundary rather than once per arc.
+    let tintedYear = null;
+
     for (let i = 0; i < LINES.length; i++) {
       const line = LINES[i];
       if (onlyAfter && line.year < PAPER.retracted_year) continue;
+
+      if (line.year !== tintedYear) {
+        tintedYear = line.year;
+        // Parity of the year, so a given year is always the same
+        // tint no matter which arcs happen to have arrived yet.
+        ctx.strokeStyle = tints[tintedYear & 1];
+      }
 
       // How far along its flight this one is. Ahead of the reveal it
       // does not exist; just behind it, it is still in the air.
@@ -1311,19 +1347,17 @@ function drawFan(g) {
     }
   }
 
-  ctx.strokeStyle = COLOR.faded;
-  ctx.lineWidth   = ARC_WIDTH;
+  ctx.lineWidth = ARC_WIDTH;
   setAlpha(arcAlpha);
-  sweep(false);
+  sweep(false, [COLOR.faded, COLOR.fadedAlt]);
 
   ctx.save();
   ctx.beginPath();
   ctx.rect(markX, 0, Math.max(0, W - markX), H);
   ctx.clip();
-  ctx.strokeStyle = COLOR.stamp;
-  ctx.lineWidth   = ARC_WIDTH_AFTER;
+  ctx.lineWidth = ARC_WIDTH_AFTER;
   setAlpha(ARC_ALPHA_AFTER);
-  sweep(true);
+  sweep(true, [COLOR.stamp, COLOR.stampAlt]);
   ctx.restore();
 
   /* THE LANDINGS. One dot per citation, at its own year, coloured by
@@ -1332,13 +1366,14 @@ function drawFan(g) {
      it was declared invalid, and the height of each column is how
      many citations that year brought. Drawn over the arcs, so the
      data sits on top of its own trails. */
-  for (const after of [false, true]) {
-    ctx.fillStyle = after ? COLOR.stamp : COLOR.faded;
-    setAlpha(after ? DOT_ALPHA : DOT_ALPHA * VIEW.dim);
-
+  /* Walks the citations that have finished their flight. Called
+     three times rather than building a list once, because a list
+     would be a few thousand throwaway objects every frame; the
+     arithmetic repeated here is cheaper than the rubbish that
+     would create. */
+  function forEachArrived(fn) {
     for (let i = 0; i < LINES.length; i++) {
       const line = LINES[i];
-      if ((line.year >= PAPER.retracted_year) !== after) continue;
 
       const p = clamp01((VIEW.frontier - line.t) / ARC_TRAVEL + 1);
       if (p < 0.98) continue;                 // only once it has arrived
@@ -1346,11 +1381,38 @@ function drawFan(g) {
       const endX = xOfYear(line.t);
       if (endX - dotX <= 0) continue;
 
-      ctx.beginPath();
-      ctx.arc(endX, oy - line.k * step,
-              DOT_R_CITE, 0, Math.PI * 2);
-      ctx.fill();
+      fn(endX, oy - line.k * step, line.year >= PAPER.retracted_year);
     }
+  }
+
+  // Pass one: knock every landing out of the arcs underneath it.
+  // All of them first, so a dot is never erased by the halo of a
+  // neighbour drawn after it.
+  ctx.fillStyle = COLOR.paper;
+  setAlpha(DOT_HALO_ALPHA);
+  forEachArrived((x, y) => {
+    ctx.beginPath();
+    ctx.arc(x, y, DOT_R_CITE + DOT_HALO_R, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  /* Passes two and three: the dots themselves, one colour per side.
+     Each is darker than the arcs it sits on — soft ink over the
+     faded trails, full stamp red over the thinner red ones — so the
+     landing always reads as the darker mark. */
+  for (const after of [false, true]) {
+    ctx.fillStyle = after ? COLOR.stamp : COLOR.inkSoft;
+    /* The pre-retraction dots recede with the rest of the valid years,
+       but not as far as their arcs do: dimming a 2px dot by the full
+       amount takes it below the paper's own texture. */
+    setAlpha(after ? DOT_ALPHA : DOT_ALPHA * (0.62 + 0.38 * VIEW.dim));
+
+    forEachArrived((x, y, isAfter) => {
+      if (isAfter !== after) return;
+      ctx.beginPath();
+      ctx.arc(x, y, DOT_R_CITE, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }
 
   /* The column being read.
@@ -1794,15 +1856,38 @@ function drawLandscape(g) {
      scattered across the map: they arrive everywhere at once and the
      clot becomes visible as it fills, rather than being handed over
      finished. Index-based, so it is identical on every run. */
-  ctx.fillStyle = COLOR.stamp;
   const n = LAND.retracted.length;
 
+  /* Standard stagger: a mark's own progress is the global progress
+     shifted back by its position in the queue, then re-normalised so
+     the last one still finishes exactly when the reveal does. */
+  const localAt = i => clamp01(
+    (VIEW.mapReveal - (i / n) * MAP_STAGGER) / (1 - MAP_STAGGER));
+
+  /* Same knockout the fan's landings get, for the same reason: a red
+     mark two pixels wide, dropped onto forty thousand grey ones, is
+     lost the moment the literature gets dense — and dense is exactly
+     where the retractions are. Clearing a hair of paper underneath
+     each one keeps it readable without making it bigger, which would
+     overstate how much of the map is affected. */
+  ctx.fillStyle = COLOR.paper;
   for (let i = 0; i < n; i++) {
-    /* Standard stagger: a dot's own progress is the global progress
-       shifted back by its position in the queue, then re-normalised
-       so the last one still finishes exactly when the reveal does. */
-    const local = clamp01(
-      (VIEW.mapReveal - (i / n) * MAP_STAGGER) / (1 - MAP_STAGGER));
+    const local = localAt(i);
+    if (local <= 0) continue;
+
+    const eased = easeOutCubic(local);
+    const size  = MAP_RETRACTED * eased + MAP_HALO * 2;
+    setAlpha(MAP_HALO_ALPHA * eased);
+
+    const p = LAND.retracted[i];
+    ctx.fillRect(p[0] * t.scale + t.ox - size / 2,
+                 t.oy - p[1] * t.scale - size / 2,
+                 size, size);
+  }
+
+  ctx.fillStyle = COLOR.stamp;
+  for (let i = 0; i < n; i++) {
+    const local = localAt(i);
     if (local <= 0) continue;
 
     const eased = easeOutCubic(local);
