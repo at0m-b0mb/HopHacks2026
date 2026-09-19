@@ -215,6 +215,7 @@ body {
    at the same time. The padding gives way before the type does. */
 .step {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -270,7 +271,14 @@ body {
 .visual {
   position: sticky;
   top: 0;
+  /* dvh over vh: on a phone the address bar grows and shrinks as you
+     scroll, and 100vh is the LARGEST of those states, so a vh-sized
+     panel is taller than the screen for most of the scroll and its
+     bottom edge - the controls - sits under the browser's own UI.
+     dvh tracks the space actually visible. vh stays first as the
+     fallback for anything that does not know dvh. */
   height: 100vh;
+  height: 100dvh;
   display: flex;
   min-width: 0;      /* same reason: let it be narrower than the canvas */
   padding: 0 0 0 1vw;
@@ -535,8 +543,12 @@ body {
 /* Below this the centred prompt runs into the caption in the corner.
    The prompt is an affordance, not content: the keys still work and
    the picture still reads, so it is the thing that goes. */
+/* The prompt used to be pure instruction, so it was the first thing
+   to drop on a narrow screen. It now carries the position - paper 64
+   of 300 - which is the answer to "is this one cherry-picked", and
+   that is worth more than the space it costs. Only the key hints go. */
 @media (max-width: 900px) {
-  .prompt { display: none; }
+  .prompt { font-size: 9px; letter-spacing: 0.1em; }
 }
 
 /* display:block removes the inline-baseline gap a canvas inherits from
@@ -564,10 +576,22 @@ body {
   .scrolly { grid-template-columns: 1fr; }
   .steps   { grid-column: 1; grid-row: 2; }
 
+  /* In one column the drawing is pinned at the top and the argument
+     scrolls under it, so centring a step in the viewport would centre
+     it behind the drawing. Align to the start instead, offset by the
+     panel's own height, which lands each step's first line just below
+     the picture it belongs to. */
+  .step {
+    scroll-snap-align: start;
+    scroll-margin-top: 52vh;
+    scroll-margin-top: 52dvh;
+  }
+
   .visual {
     grid-column: 1;
     grid-row: 1;
     height: 52vh;
+    height: 52dvh;
     /* Opaque, and above the text.
 
        In one column the steps scroll UNDER the pinned drawing, and a
@@ -598,6 +622,23 @@ body {
   }
   .caption { bottom: 6vh; max-width: 26ch; }
   .controls { bottom: 1.5vh; }
+}
+
+/* A phone on its side is the worst case: half the height of a phone
+   upright, and the panel's share of it left the drawing a 195px
+   strip. Give the picture most of the screen here — the text is one
+   swipe away and the drawing is the thing that cannot be shrunk. */
+@media (max-width: 900px) and (max-height: 500px) {
+  .visual {
+    height: 78vh;
+    height: 78dvh;
+  }
+  .step {
+    scroll-margin-top: 78vh;
+    scroll-margin-top: 78dvh;
+  }
+  .counter-value { font-size: 30px; }
+  .caption { bottom: 4vh; }
 }
 </style>
 </head>
@@ -1926,7 +1967,13 @@ function drawRates(g) {
 
      Margins are for the plot's own furniture — the decade labels down
      the left, the ticks and axis title underneath. */
-  const padL = 46, padR = 14, padB = 34;
+  /* Fixed margins are fine on a laptop and ruinous on a phone: 46px
+     of label gutter is a sixth of a 269px canvas, and what is left
+     had the two hundred dots in 74px. Scale them with the canvas so
+     the plot keeps most of the space at every size. */
+  const padL = Math.min(46, Math.max(24, W * 0.13));
+  const padR = Math.min(14, W * 0.04);
+  const padB = Math.min(34, Math.max(20, H * 0.07));
   const top    = g.fieldTop;
   const bottom = g.mapBottom - padB;
 
@@ -3189,8 +3236,27 @@ function probeAt(clientX, clientY) {
 let HOVER_CELL = null;
 let HOVER_YEAR = null;
 
-canvas.addEventListener('mousemove', e => probeAt(e.clientX, e.clientY));
-canvas.addEventListener('mouseleave', () => { hideProbe(); draw(); });
+/* A phone has no hover, so every one of these readings was dead on
+   the device most people will open this on. Pointer events cover
+   both: a mouse reads continuously as it moves, a finger reads where
+   it lands.
+
+   pointermove is gated to the mouse deliberately. On touch it fires
+   during a drag, so an unfiltered handler turns every scroll into a
+   trail of tooltips. */
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse') probeAt(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('pointerdown', e => probeAt(e.clientX, e.clientY));
+canvas.addEventListener('pointerleave', () => { hideProbe(); draw(); });
+
+/* A reading is about a point on the drawing, and once the drawing has
+   moved under your finger it is about nothing. Scrolling dismisses
+   it. */
+window.addEventListener('scroll', () => {
+  if (probeEl && probeEl.classList.contains('on')) { hideProbe(); draw(); }
+}, { passive: true });
 
 
 /* Stepping between papers still belongs to the keyboard, and only
