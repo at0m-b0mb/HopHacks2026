@@ -172,6 +172,17 @@ body {
   max-width: 34ch;
 }
 
+.byline.sources {
+  margin-top: 0.5em;
+  color: var(--faded);
+}
+.byline a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.byline a:hover { color: var(--ink); }
+
 .byline {
   margin: 2.2em 0 0;
   font-family: var(--data);
@@ -676,8 +687,10 @@ body {
     <p class="lede">A retraction is a dated, public statement that a result
       should no longer be treated as knowledge. This is what happens to the
       citations afterwards.</p>
-    <p class="byline">HopHacks 2026 · Memetics · data from OpenAlex,
-      Crossref and the Nomic PubMed landscape</p>
+    <p class="byline">Kailash Parshad &amp; Ilaqquan Rajesh Indure ·
+      HopHacks 2026 · Memetics</p>
+    <p class="byline sources">Data from OpenAlex, Crossref and the
+      Nomic PubMed landscape</p>
     <p class="scroll-cue">scroll</p>
   </header>
 
@@ -802,6 +815,9 @@ body {
       not count: the number is the number.</p>
     <p class="byline">Every figure on this page is computed from the data
       files in the repository, not typed in.</p>
+    <p class="byline sources">Afterlife · Kailash Parshad and Ilaqquan
+      Rajesh Indure · HopHacks 2026 ·
+      <a href="https://github.com/at0m-b0mb/HopHacks2026">source and data</a></p>
   </footer>
 
 </main>
