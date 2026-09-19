@@ -1841,6 +1841,59 @@ function drawPublicationDot(g) {
 
 let TREE = null;
 
+/* The direct series, taken from papers.json rather than from the
+   tree's own children.
+
+   They are two answers to the same question from two OpenAlex
+   queries taken at different moments, and they disagree: the tree
+   lists 1,888 citing works, papers.json records 1,886 citations. The
+   tree also contains five works published in 1970, 2000 and 2010,
+   which cannot have cited a paper from 2014 — so it is the less
+   trustworthy of the two, and dropping those five gives 1,883 rather
+   than reconciling anything.
+
+   The fan a reader has just scrolled past is drawn from papers.json.
+   Having the next view quietly restate the same paper's citations as
+   a different number is the kind of thing that makes someone stop
+   believing the rest, so both views now read from one file. Only the
+   SECOND-hand series needs the tree, and that is what it is for.
+
+   Keyed to the tree's own paper, not the selected one: the tree is
+   fixed, and stepping through the 300 papers must not swap a
+   different paper's direct series in beneath it. */
+function ringsDirectTotal() {
+  const d = ringsDirect();
+  return TREE._directTotal !== undefined
+    ? TREE._directTotal
+    : Object.values(d).reduce((a, b) => a + b, 0);
+}
+
+/* The second-hand columns, summed. Cached: it is a fixed file. */
+function ringsSecondTotal() {
+  if (TREE._secondTotal === undefined) {
+    TREE._secondTotal = Object.values(TREE.g2).reduce((a, b) => a + b, 0);
+  }
+  return TREE._secondTotal;
+}
+
+function ringsDirect() {
+  if (TREE._direct) return TREE._direct;
+
+  const src = PAPERS.find(p => p.id === TREE.id);
+  if (!src) return TREE.g1;          // papers.json not in yet
+
+  const out = {};
+  let total = 0;
+  for (const y in src.citations_by_year) {
+    out[Number(y)] = src.citations_by_year[y];
+    total += src.citations_by_year[y];
+  }
+
+  TREE._direct = out;
+  TREE._directTotal = total;
+  return out;
+}
+
 function drawRings(g) {
   if (!TREE || !TREE.peak) return;
 
@@ -1890,11 +1943,13 @@ function drawRings(g) {
      partly stop citing a retracted paper once they know. The series
      behind it does not fall away, because those authors never find
      out. */
-  for (const y in TREE.g1) {
+  const direct = ringsDirect();
+
+  for (const y in direct) {
     const year = Number(y);
     if (year > ringFront) continue;
 
-    const n = TREE.g1[y];
+    const n = direct[y];
     const after = year >= TREE.retracted_year;
     ctx.fillStyle = after ? COLOR.stamp : COLOR.faded;
     setAlpha(after ? 1 : VIEW.dim);
@@ -1904,10 +1959,10 @@ function drawRings(g) {
   }
 
   /* The year being read, bracketed the same way as the single paper. */
-  if (HOVER_YEAR !== null && (TREE.g1[HOVER_YEAR] || TREE.g2[HOVER_YEAR])) {
+  if (HOVER_YEAR !== null && (direct[HOVER_YEAR] || TREE.g2[HOVER_YEAR])) {
     const cx   = xOfYear(HOVER_YEAR + 0.5);
     const hw   = wide / 2 + 4;
-    const tall = Math.max(TREE.g1[HOVER_YEAR] || 0, TREE.g2[HOVER_YEAR] || 0);
+    const tall = Math.max(direct[HOVER_YEAR] || 0, TREE.g2[HOVER_YEAR] || 0);
     const topY = g.axisY - tall * step - 8;
 
     setAlpha(0.8);
@@ -2846,9 +2901,16 @@ function setCaption(stage) {
        count of works is a different, smaller number (57,765, in
        contagion_hero.json). The columns are paths, so the caption
        says paths. */
+    /* Both totals are the sums of the columns actually drawn.
+
+       gen2_paths (65,736) is every citing work's all-time count,
+       but the columns can only show the years OpenAlex reports per
+       year — about 2012 on — so they add to 65,629. Printing the
+       larger figure over a picture that adds to the smaller one
+       invites exactly the arithmetic a sceptical reader will do. */
     swapText(meta, TREE
-      ? `${TREE.gen1_count.toLocaleString('en-US')} direct \u00b7 ` +
-        `${TREE.gen2_paths.toLocaleString('en-US')} second-hand paths`
+      ? `${ringsDirectTotal().toLocaleString('en-US')} direct \u00b7 ` +
+        `${ringsSecondTotal().toLocaleString('en-US')} second-hand paths`
       : '');
   } else if (stage === 1) {
     swapText(title, LAND
@@ -3133,7 +3195,11 @@ function readRingsAt(clientX, clientY) {
   const py  = clientY - box.top;
 
   const year = Math.floor(yearOfX(px));
-  const g1 = TREE.g1[year] || 0;
+
+  /* The same series the columns are drawn from, or the reading would
+     quote the tree while the bar beside it was drawn from
+     papers.json. */
+  const g1 = ringsDirect()[year] || 0;
   const g2 = TREE.g2[year] || 0;
   if (!g1 && !g2) return hideProbe();
 

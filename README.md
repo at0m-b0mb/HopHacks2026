@@ -146,6 +146,19 @@ Say these before anyone asks. They are why the rest is trustworthy.
   57,765 *distinct works* do. A work inheriting the claim by three routes is
   counted three times in the first figure and once in the second. The two are
   never mixed, and 2026 is a partial year wherever it appears.
+- **The page prints the totals its columns actually add to.** The ring view
+  shows **65,629** paths, not 65,736: the columns can only cover the years
+  OpenAlex reports per year, which is roughly 2012 on. The same 15-year
+  window described below.
+- **Two counts of the same paper's direct citations, from two queries.**
+  The `cites:` query returns **1,888** distinct citing works; the paper's own
+  `counts_by_year` records **1,886** citations. Five of the tree's 1,888 were
+  published in 1970, 2000 and 2010 and cannot have cited a 2014 paper, so the
+  citation-graph side is the less trustworthy — though removing them gives
+  1,883, not 1,886, so the rest is ordinary drift between two snapshots. Both
+  views in the page read the direct series from `papers.json`, so the figure
+  is the same wherever you meet it; the 1,888 above is the distinct-works
+  count from `contagion_hero.json`, which is a different measurement.
 - **The map is topical, not social.** It is built from text similarity, so it
   shows that some *subjects* are far riskier than others — not that some
   research groups are. Those are different graphs.
