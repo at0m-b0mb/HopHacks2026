@@ -1,0 +1,2708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Afterlife</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+:root {
+  --paper:    #F1EBDF;
+  --ink:      #1F1A15;
+  --ink-soft: #6B6154;
+  --faded:    #B9AE9C;
+  --stamp:    #B02A1F;
+  --rule:     #D6CCB8;
+
+  /* MOTION GRAMMAR, taken from the track's own site so the piece feels
+     native to the people judging it. Their whole vocabulary is ONE
+     keyframe: content rises 26px while fading in, over 750ms, on a
+     decisive ease-out, each block 140ms after the one before.
+
+     Keeping it to one curve and one duration is the point. Several
+     easings on one page is what makes motion feel improvised. */
+  --ease-rise: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --rise-ms:   750ms;
+
+  --display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --body:    "Spectral", Georgia, "Times New Roman", serif;
+  --data:    "Courier Prime", ui-monospace, "Courier New", monospace;
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The type arrives in reading order rather than all at once, which
+   is what makes a still page feel composed instead of merely loaded. */
+.counter,
+.caption,
+.controls {
+  animation: var(--rise-ms) var(--ease-rise) both riseIn;
+}
+
+.counter     { animation-delay: 0.20s; }
+.caption     { animation-delay: 0.34s; }
+.controls    { animation-delay: 0.48s; }
+
+/* Motion here is emphasis, not content, so it is the first thing to go
+   for anyone who has asked the OS for less of it. */
+@media (prefers-reduced-motion: reduce) {
+  .counter, .caption, .controls, .step { animation: none; transition: none; }
+  .counter-ratio, .beat                        { transition: none; }
+  .swap                                        { transition: none; }
+  .controls button:hover::after                { animation: none; }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.doc { --gutter: clamp(24px, 4vw, 72px); }
+
+/* ---- the opening and the closing are ordinary prose ---- */
+
+.opening,
+.method {
+  max-width: 62ch;
+  margin: 0 auto;
+  padding: 18vh var(--gutter) 14vh;
+}
+
+/* The title owns a whole screen.
+
+   Without this the opening is only about 700px tall, so on any normal
+   display the scrolly section — and the counter pinned inside it —
+   was already poking into the first screen. You saw a stray "0 /
+   CITATIONS AFTER RETRACTION" in the corner before scrolling, a
+   reading of nothing, next to a title that had not made its claim
+   yet. A full viewport keeps the two apart. */
+.opening {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.display {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(56px, 11vw, 132px);
+  line-height: 0.92;
+  font-weight: 400;
+}
+
+.lede {
+  margin: 1.1em 0 0;
+  font-size: clamp(17px, 2.1vw, 22px);
+  line-height: 1.5;
+  max-width: 34ch;
+}
+
+.byline {
+  margin: 2.2em 0 0;
+  font-family: var(--data);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.scroll-cue {
+  margin: 4em 0 0;
+  font-family: var(--data);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--faded);
+}
+
+.method h2 {
+  margin: 0 0 0.8em;
+  font-family: var(--display);
+  font-size: clamp(26px, 3.4vw, 38px);
+  font-weight: 400;
+}
+
+.method p { margin: 0 0 1.1em; line-height: 1.6; font-size: 16px; }
+.method b { font-weight: 500; }
+
+/* ---- the scrolling middle ----
+
+   Text scrolls in the left column; the drawing is sticky in the right
+   and stays put while the argument moves past it. Each step is a
+   viewport tall, so exactly one of them is ever in the middle of the
+   screen, which is what the observer keys off. */
+
+.scrolly {
+  display: grid;
+  /* minmax(0, 1fr), not 1fr. A canvas is a replaced element whose
+     intrinsic width is its backing store — 1800px at this size — so a
+     plain 1fr track refuses to shrink below that and blows the grid
+     off the page. minmax(0, …) lets the column be as narrow as the
+     layout needs. */
+  grid-template-columns: minmax(20ch, 36ch) minmax(0, 1fr);
+  gap: var(--gutter);
+  padding: 0 var(--gutter);
+  align-items: start;
+}
+
+/* Placed explicitly rather than by source order. The drawing comes
+   FIRST in the markup so that when the columns collapse on a narrow
+   screen it lands at the top, where a sticky panel belongs — but on a
+   wide screen it belongs on the right, beside the text. */
+.steps  { grid-column: 1; grid-row: 1; }
+.visual { grid-column: 2; grid-row: 1; }
+
+.step {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8vh 0;
+  opacity: 0.25;
+  transition: opacity 600ms var(--ease-rise);
+}
+
+/* Only the step you are actually reading is at full strength. The
+   others stay faintly visible so the page still reads as one
+   continuous argument rather than a slideshow. */
+.step.active { opacity: 1; }
+
+.step h2 {
+  margin: 0 0 0.7em;
+  font-family: var(--display);
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.1;
+  font-weight: 400;
+}
+
+.step p { margin: 0 0 1em; line-height: 1.6; font-size: 16px; }
+.step b { font-weight: 500; color: var(--stamp); }
+.step em { font-style: italic; }
+
+.step .learn {
+  border-left: 1px solid var(--rule);
+  padding-left: 1em;
+}
+
+.step .caveat {
+  font-family: var(--data);
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
+.step .caveat b { color: var(--ink); font-weight: 400; }
+
+.visual {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  min-width: 0;      /* same reason: let it be narrower than the canvas */
+  padding: 0 0 0 1vw;
+}
+
+.counter {
+  position: absolute;
+  top: 4vh;
+  right: 0;
+  text-align: right;
+}
+
+.counter-value {
+  font-family: var(--display);
+  font-size: clamp(54px, 9vmin, 116px);
+  line-height: 0.88;
+  color: var(--ink);
+  /* Stops the number jittering as it counts: every digit is given the
+     same advance width, so 111 and 888 occupy identical space. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.counter-ratio {
+  margin-top: 10px;
+  font-family: var(--data);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  opacity: 0;
+  transition: opacity var(--rise-ms) var(--ease-rise);
+}
+.counter-ratio.on { opacity: 1; }
+.counter-ratio b { font-weight: 400; color: var(--stamp); }
+
+/* The line that appears when the stamp lands.
+
+   It used to sit dead centre of the drawing, which put it on top of
+   the columns with nothing anchoring it — it read as text floating
+   over the picture rather than as a caption to anything.
+
+   It now sits in the empty band between the axis and the caption,
+   which is the one strip of the panel that never holds data at any
+   size or on any paper. Centred there it reads as a caption to the
+   timeline it is describing. */
+.beat {
+  position: absolute;
+  left: 50%;
+  bottom: 13%;
+  transform: translateX(-50%);
+  font-family: var(--data);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--stamp);
+  opacity: 0;
+  transition: opacity 400ms var(--ease-rise);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.beat.on { opacity: 1; }
+
+.counter-label {
+  margin-top: 12px;
+  font-family: var(--data);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.caption {
+  position: absolute;
+  left: 0;
+  bottom: 9vh;
+  max-width: 34ch;
+}
+
+.caption-title {
+  font-family: var(--body);
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.35;
+  color: var(--ink);
+  /* Real titles run long. Cap at three lines so a wordy one cannot
+     climb into the timeline. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.caption-meta {
+  margin-top: 7px;
+  font-family: var(--data);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* The hover readout on the map.
+
+   A bordered box in the stamp's own language rather than a floating
+   browser-style tooltip: thin rule, paper ground, the subject set in
+   the body serif and its rate in the data mono — one is a name, the
+   other is evidence.
+
+   pointer-events: none, so it can never sit between the cursor and
+   the map it is describing. */
+.probe {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  padding: 7px 10px 8px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-rise);
+  white-space: nowrap;
+}
+.probe.on { opacity: 1; }
+
+.probe-subject {
+  display: block;
+  font-family: var(--body);
+  font-size: 14px;
+  font-style: italic;
+  color: var(--ink);
+}
+
+.probe-rate {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--data);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.probe-rate b { font-weight: 400; color: var(--stamp); }
+
+.controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3vh;
+  text-align: center;
+}
+
+/* Any line of type whose MEANING changes mid-run fades down, swaps
+   underneath, and comes back. The counter's label says "citations"
+   in one view and "papers" in another; letting that flip instantly,
+   under a picture that is still moving, reads as a glitch rather than
+   a change. The value itself is excluded — it updates every frame
+   while counting and must never be faded. */
+.swap {
+  transition: opacity 190ms var(--ease-rise),
+              transform 190ms var(--ease-rise);
+}
+.swap.swapping {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* <button> because these do something rather than go somewhere, which
+   is what gives them keyboard focus and Enter/Space for free. Every
+   scrap of button chrome is then stripped so they read as plain text. */
+.controls button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0 15px;
+  font-family: var(--data);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+  position: relative;
+}
+
+/* The rule under each control is drawn rather than declared, so it
+   can be redrawn on hover. text-decoration cannot be animated; a
+   pseudo-element can, and scaleX from the left is the same gesture
+   the axis makes when the page opens. */
+.controls button::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -5px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(1);
+  transform-origin: left;
+  transition: transform 260ms var(--ease-rise);
+}
+
+.controls button:hover::after {
+  animation: redraw 320ms var(--ease-rise);
+}
+
+@keyframes redraw {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* A press should feel like a press. */
+.controls button:active { transform: translateY(1px); }
+
+.controls button:hover { color: var(--ink); }
+
+/* The only instruction on the page. Without it the keys may as well
+   not exist, and a judge who walks up before anyone has touched the
+   keyboard has no way to know there is more than one view. */
+.prompt {
+  /* max-content so the box hugs the text. As a full-width block its
+     left edge sat at 0 regardless of where the centred text actually
+     was, which makes every overlap test lie. */
+  width: max-content;
+  max-width: 100%;
+  margin: 14px auto 0;
+  font-family: var(--data);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faded);
+}
+
+.controls button:focus-visible {
+  outline: 1px solid var(--ink-soft);
+  outline-offset: 5px;
+}
+
+/* Below this the centred prompt runs into the caption in the corner.
+   The prompt is an affordance, not content: the keys still work and
+   the picture still reads, so it is the thing that goes. */
+@media (max-width: 900px) {
+  .prompt { display: none; }
+}
+
+/* display:block removes the inline-baseline gap a canvas inherits from
+   being an inline element, which otherwise adds a few stray pixels. */
+#stage {
+  display: block;
+  height: 100%;
+  /* A flex item will not shrink below its min-content width, and a
+     canvas's min-content is its backing store — 1800px here — so it
+     pushed the panel wide and dragged everything positioned inside it
+     off the page. flex 1 1 0 plus min-width 0 lets it take the space
+     it is given instead of demanding its own. */
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Under about a tablet the two columns cannot both be useful, so the
+   drawing stops being sticky and simply sits between the paragraphs
+   it belongs to. */
+/* One column: the drawing pins itself to the top of the screen and the
+   argument scrolls underneath it, which is the only arrangement that
+   still works when there is no room for two columns. */
+@media (max-width: 900px) {
+  .scrolly { grid-template-columns: 1fr; }
+  .steps   { grid-column: 1; grid-row: 2; }
+
+  .visual {
+    grid-column: 1;
+    grid-row: 1;
+    height: 52vh;
+    /* Opaque, and above the text.
+
+       In one column the steps scroll UNDER the pinned drawing, and a
+       canvas is transparent — so every paragraph was showing straight
+       through the picture. The panel needs its own background and its
+       own stacking order for the pattern to work at all. */
+    background: var(--paper);
+    z-index: 2;
+    box-shadow: 0 10px 18px -12px rgba(31, 26, 21, 0.18);
+  }
+
+  .step {
+    min-height: auto;
+    padding: 7vh 0;
+  }
+
+  /* The counter is sized for a wall, not a phone. */
+  .counter-value { font-size: 44px; }
+
+  /* nowrap is right on a laptop and runs clean off a phone. */
+  .beat {
+    white-space: normal;
+    max-width: 78%;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-align: center;
+    line-height: 1.6;
+  }
+  .caption { bottom: 6vh; max-width: 26ch; }
+  .controls { bottom: 1.5vh; }
+}
+</style>
+</head>
+<body>
+
+<main class="doc">
+
+  <header class="opening">
+    <h1 class="display">Afterlife</h1>
+    <p class="lede">A retraction is a dated, public statement that a result
+      should no longer be treated as knowledge. This is what happens to the
+      citations afterwards.</p>
+    <p class="byline">HopHacks 2026 · Memetics · data from OpenAlex,
+      Crossref and the Nomic PubMed landscape</p>
+    <p class="scroll-cue">scroll</p>
+  </header>
+
+  <section class="scrolly">
+
+    <div class="visual">
+      <canvas id="stage"></canvas>
+
+      <div class="counter">
+        <div class="counter-value swap" id="counter-value">0</div>
+        <div class="counter-label swap">citations after retraction</div>
+        <div class="counter-ratio" id="counter-ratio"></div>
+      </div>
+
+      <div class="beat" id="beat"></div>
+
+      <div class="probe" id="probe" aria-hidden="true">
+        <span class="probe-subject" id="probe-subject"></span>
+        <span class="probe-rate" id="probe-rate"></span>
+      </div>
+
+      <div class="caption">
+        <div class="caption-title swap" id="caption-title"></div>
+        <div class="caption-meta swap"  id="caption-meta"></div>
+      </div>
+
+      <nav class="controls">
+        <button type="button" id="play">Play</button>
+        <button type="button" id="reset">Reset</button>
+        <p class="prompt swap" id="prompt"></p>
+      </nav>
+    </div>
+
+    <div class="steps">
+
+      <article class="step" data-stage="0">
+        <h2>One paper</h2>
+        <p>Every thin arc is a single citation, leaving the paper on the day
+          it was published and landing in the year it was made. Columns are
+          years; their height is how many citations that year brought.</p>
+        <p>The stamp falls on the year the journal declared the result
+          invalid. Everything pale happened while the paper was still
+          standing. Everything red happened after.</p>
+        <p class="learn">What it shows — this paper was cited
+          <b>950 times after it was retracted</b>, against 936 before. Half
+          its citation life happened after it was withdrawn.</p>
+      </article>
+
+      <article class="step" data-stage="1">
+        <h2>Where in science this happens</h2>
+        <p>3.4 million biomedical papers, placed by what they are about.
+          Neighbours are papers on the same subject. Pale points are the
+          literature; red points are the retracted ones.</p>
+        <p class="learn">What it shows — the red is not spread evenly.
+          Against a baseline rate of 0.057%, the worst neighbourhood runs at
+          <b>10.7%, or 188× the average</b>, and <b>half of all retractions
+          sit in 5.2% of the map</b>. Two thirds of neighbourhoods have none
+          at all.</p>
+        <p class="caveat">This map is built from text similarity, so it shows
+          that some <em>subjects</em> are far riskier than others — not yet
+          that some research groups are. Those are different graphs.</p>
+      </article>
+
+      <article class="step" data-stage="2">
+        <h2>The ring nobody counts</h2>
+        <p>Every count so far has been of papers citing the retracted
+          paper <em>directly</em> — authors who at least had it in their
+          hands. The tall columns here are the ring beyond that: papers
+          citing one of <em>those</em>. Their authors have no reason to know
+          a retraction sits anywhere in their reference chain.</p>
+        <p>Both series are drawn at the same scale. The direct citations are
+          the dark slivers along the bottom.</p>
+        <p class="learn">What it shows — direct citation
+          <b>falls</b> after retraction, from 307 a year to 12. Second-hand
+          citation <b>keeps climbing</b>, from 2,926 to 9,318. The year
+          before retraction there were 10 second-hand citations for every
+          direct one. By 2026 there are <b>396</b>.</p>
+        <p class="learn">The correction reaches the first ring. It never
+          reaches the second.</p>
+      </article>
+
+    </div>
+
+  </section>
+
+  <footer class="method">
+    <h2>How it was measured</h2>
+    <p><b>OpenAlex</b> says which papers are retracted and how many times each
+      was cited in each year. It does <em>not</em> record when a paper was
+      retracted, so the dates come from <b>Retraction Watch</b> via Crossref.
+      Joining those two is what makes a before and an after exist at all.</p>
+    <p><b>Only papers published from 2012 on.</b> OpenAlex reports citations
+      per year for roughly the last fifteen years, so an older paper is
+      missing its earliest citations — which are all pre-retraction.
+      Including them would have inflated the posthumous share in our own
+      favour, so they are dropped, and every surviving paper's yearly counts
+      must reconcile with its headline total.</p>
+    <p><b>What this does not claim.</b> Retracted is not the same as
+      fraudulent. A second-hand citation is reachability, not influence — the
+      citing paper may be citing its source for something unrelated. The
+      second ring is also structurally later in time, so some of its
+      posthumous share is lag rather than contagion. And area on screen is
+      not count: the number is the number.</p>
+    <p class="byline">Every figure on this page is computed from the data
+      files in the repository, not typed in.</p>
+  </footer>
+
+</main>
+
+<script>
+'use strict';
+
+/* ====================================================================
+   AFTERLIFE
+   Citations that arrive after a paper has been retracted.
+
+   One paper drawn as a fan of citation lines, faded before the
+   retraction and red after it, with the stamp landing at the year the
+   claim was withdrawn. Press F, the space bar, or click the drawing to
+   pull back to the whole field of papers.
+
+   Data: papers.json, produced by fetch_papers.py from OpenAlex
+   (citations per year) and Crossref (retraction dates).
+   ==================================================================== */
+
+/* --------------------------------------------------------------------
+   1. CONFIGURATION
+   Every number that controls the picture lives here, so there are no
+   magic numbers buried in the drawing code.
+   -------------------------------------------------------------------- */
+
+/* The axis span. Not constants: they are refitted to whatever
+   papers.json actually contains, because the real data does not reach
+   back to 1995. See fitYearRange(). */
+let YEAR_MIN = 1995;
+let YEAR_MAX = 2026;
+
+const AXIS_Y_FRACTION = 0.78;
+const EDGE      = 12;
+const TICK_LEN  = 6;
+const LABEL_GAP = 14;
+const LABEL_PX  = 11;
+
+// Which paper leads. By id, so it survives papers.json being rebuilt
+// and the records landing in a different order. Falls back to the
+// index if the id is not found.
+const PAPER_ID    = 'W2144590229';
+const PAPER_INDEX = 0;
+
+const COLUMN_SPREAD = 0.55;      // width of a year's column, in years
+const FAN_SEED   = 20260919;     // fixed, so the fan is identical every run
+/* One dot per citation, landing in its own year's column. This is
+   where the before/after split lives: a dot sits at the year it
+   happened and cannot be dragged across the verdict by the arc that
+   carried it there. */
+const DOT_R_CITE = 1.6;
+const DOT_ALPHA  = 0.85;         // dots sit above the lines, so they can be
+                                 // nearly solid without closing the fan up
+const DOT_R      = 3;
+
+const STAMP_TEXT       = 'RETRACTED';
+const STAMP_ROT_DEG    = -8;
+const STAMP_FONT_PX    = 18;   // ceiling; stampSize() scales down from here
+const STAMP_HALO       = 4;      // ceiling for the paper behind the stamp
+const STAMP_BORDER_W   = 1.6;
+const STAMP_ALPHA      = 0.85;
+const STAMP_DROP_GAP   = 8;      // gap between the box and its drop line
+const STAMP_DROP_HALO  = 3;      // narrower, so it does not slice the fan
+
+const DURATION_MS      = 8000;   // how long the fan takes to draw in.
+                                 // The strike beat is NOT inside this:
+                                 // the reveal clock stops dead for it,
+                                 // so a run is 8s plus the ~1.5s beat.
+/* THE STRIKE BEAT.
+
+   Three separate durations, because they describe three different
+   things and tying them together is what made the earlier version feel
+   like nothing had happened:
+
+     IMPACT_MS        the stamp's own movement, coming down and settling
+     STRIKE_DWELL_MS  stillness AFTER it has settled, with nothing
+                      moving anywhere on the page
+     DIM_MS           how quickly the grey fan steps back
+
+   The reveal is frozen for IMPACT_MS + STRIKE_DWELL_MS, so the page is
+   already motionless for a full second by the time it resumes. The
+   dwell is the part a viewer actually registers: motion that merely
+   slows reads as lag, motion that stops reads as a full stop. */
+const STRIKE_DWELL_MS  = 1000;
+const DIM_MS           = 300;
+const GREY_DIM         = 0.55;   // how far the pre-retraction fan recedes
+const IMPACT_MS        = 480;    // how long the stamp takes to settle
+const IMPACT_SCALE     = 1.32;   // how oversized it starts
+const IMPACT_TILT_DEG  = 5;      // extra twist it settles out of
+const DROP_START       = 0.45;   // point in the impact the drop line begins
+
+const FIELD_TOP_FRACTION = 0.13; // top of the stacked rows
+const FIELD_FADE_MS      = 420;  // crossfade between views
+const MAX_FRAME_MS       = 100;  // biggest step the clock will take
+/* Views in the toggle cycle: paper, field, map.
+
+   Set to 4 to re-enable the second-ring view, which is written and
+   working below but is NOT in the cycle by default. Its data is real
+   and its numbers are exact, but it does not read: 65,736 branches
+   and 1,888 direct citations occupy the same bounded area, so the
+   only difference available to the eye is density, and density
+   saturates long before thirty-five times. The amplification is not
+   expressible in this geometry. It is a far better spoken sentence
+   than it is a picture, so it lives in the pitch instead. */
+/* Views in the toggle cycle: one paper, the map, the two rings.
+
+   The three-hundred-row field view was cut. It was honest and it was
+   pretty, but at 1.6px per row nobody could read an individual paper
+   out of it, and the story it told — that this is not one paper — is
+   carried better by a sentence than by a picture you have to be
+   talked through. */
+
+const AXIS_IN_MS         = 900;  // the rule drawing itself across
+const MAP_IN_MS          = 1400; // the retracted papers landing on the map
+const MAP_STAGGER        = 0.55; // how much of that is spent staggering them
+
+const MAP_DOT             = 1.3;  // background paper, in px
+const MAP_FIELD_ALPHA     = 0.30;
+const MAP_RETRACTED       = 2.9;  // retracted paper, in px
+const MAP_RETRACTED_ALPHA = 0.88;
+
+const ARC_WIDTH    = 0.5;   // the travel trail, fainter than its landing
+const ARC_ALPHA    = 0.26;
+const ARC_WIDTH_AFTER = 0.7;  // the posthumous stretch, heavier and red
+const ARC_ALPHA_AFTER = 0.30;
+const ARC_LIFT     = 0.42;  // how far above its landing an arc rises
+const ARC_MIN_LIFT = 16;    // so even short hops arc instead of lying flat
+const ARC_TRAVEL   = 0.9;   // years of reveal an arc takes to fly
+
+
+/* --------------------------------------------------------------------
+   2. PALETTE
+   The canvas API cannot use var(--rule), it needs a literal colour
+   string, so the values are read out of the stylesheet rather than
+   retyped here. Retyping is how two hex codes quietly diverge.
+   -------------------------------------------------------------------- */
+
+const cssVars = getComputedStyle(document.documentElement);
+const readVar = name => cssVars.getPropertyValue(name).trim();
+
+const COLOR = {
+  paper:   readVar('--paper'),
+  ink:     readVar('--ink'),
+  inkSoft: readVar('--ink-soft'),
+  faded:   readVar('--faded'),
+  stamp:   readVar('--stamp'),
+  rule:    readVar('--rule'),
+};
+
+const DATA_FONT = readVar('--data');
+
+/* --------------------------------------------------------------------
+   3. CANVAS SETUP AND HiDPI HANDLING
+
+   A canvas has TWO sizes, and confusing them is the usual reason canvas
+   work looks blurry:
+
+     - its CSS size      (how big it appears on the page)
+     - its backing store (canvas.width / canvas.height, the real pixel grid)
+
+   On a Retina display one CSS pixel is 2 device pixels. If the backing
+   store is left at the CSS size the browser scales a small bitmap up and
+   every hairline turns to mush. So: make the backing store CSS size x
+   devicePixelRatio, then scale the drawing context by the same factor.
+   After that every coordinate written below is in CSS pixels, which is
+   comfortable to reason about, while the output is full resolution.
+   -------------------------------------------------------------------- */
+
+const canvas = document.getElementById('stage');
+const ctx    = canvas.getContext('2d');
+
+let W = 0;   // canvas width  in CSS pixels
+let H = 0;   // canvas height in CSS pixels
+let FIELD_TOP_PX = 0;      // measured each resize, see below
+let FIELD_BOTTOM_PX = 0;
+
+/* Where the two stacked views may start and stop vertically.
+
+   Split out of resize() because it must run again whenever the COPY
+   changes, not only when the window does. That was the hole in the
+   first version: the verdict block starts EMPTY and only gets its
+   text when the run finishes, several lines taller than it was when
+   resize() last measured. The rows were laid out against a box that
+   had since grown, so the verdict ended up sitting on them again.
+   Opacity does not change layout; inserting text certainly does. */
+function measureClearance(rect) {
+  rect = rect || canvas.getBoundingClientRect();
+
+  /* Below the counter, measured from the live DOM rather than guessed
+     at with a fraction. The counter is sized in vmin and clamped, so
+     its height moves with the window; a hard-coded fraction would
+     collide with it at some sizes and leave a gap at others. */
+  let clearance = 0;
+  for (const sel of ['.counter']) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    const bottom = el.getBoundingClientRect().bottom - rect.top;
+    if (bottom > clearance) clearance = bottom;
+  }
+  FIELD_TOP_PX = clearance + 26;
+
+  // And the same from below, for the map, which has no axis to stop at
+  // and would otherwise run under the caption and the controls.
+  let floorPx = H;
+  for (const sel of ['.caption', '.controls']) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    const top = el.getBoundingClientRect().top - rect.top;
+    if (top < floorPx) floorPx = top;
+  }
+  FIELD_BOTTOM_PX = floorPx - 18;
+}
+
+function resize() {
+  const dpr  = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+
+  /* A zero-sized measurement is real and must be ignored.
+
+     ResizeObserver fires during layout, and a sticky element being
+     re-laid-out — or any ancestor briefly display:none — reports 0.
+     Writing that into the backing store blanks the canvas until
+     something else happens to trigger another resize, which on a
+     phone (where scrolling re-lays-out constantly) shows up as the
+     drawing randomly disappearing. */
+  if (rect.width < 1 || rect.height < 1) {
+    /* ...but skipping it must not be permanent. If the very first
+       measurement is zero and nothing ever resizes the canvas again,
+       W stays 0 and the drawing never appears at all — which is
+       exactly what happened on a phone. Come back and look again.
+
+       setTimeout rather than requestAnimationFrame: rAF does not run
+       in a background tab, so a page opened in one would never
+       recover. */
+    clearTimeout(resize.retry);
+    resize.retry = setTimeout(resize, 120);
+    return;
+  }
+
+  clearTimeout(resize.retry);
+
+  W = rect.width;
+  H = rect.height;
+
+  canvas.width  = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+
+  measureClearance(rect);
+
+  // setTransform, not scale, because it REPLACES the transform rather
+  // than multiplying onto it. resize() runs many times; scale() would
+  // compound and the drawing would grow by a factor of dpr each time.
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  draw();
+}
+
+/* --------------------------------------------------------------------
+   4. THE SCALE: year -> x position
+
+   The one piece of arithmetic the whole visualisation depends on.
+   Normalise the year to 0..1 across the span, then stretch it across the
+   axis. Every later stage (the publication dot, the end of each citation
+   line, the stamp) is this function called with a year.
+   -------------------------------------------------------------------- */
+
+function xOfYear(year) {
+  const left  = EDGE;
+  const right = W - EDGE;
+  const t = (year - YEAR_MIN) / (YEAR_MAX - YEAR_MIN);
+  return left + t * (right - left);
+}
+
+/* The inverse, for reading a cursor position back into a year. */
+function yearOfX(x) {
+  const left  = EDGE;
+  const right = W - EDGE;
+  return YEAR_MIN + ((x - left) / (right - left)) * (YEAR_MAX - YEAR_MIN);
+}
+
+
+/* --------------------------------------------------------------------
+   5. CRISP HAIRLINES
+
+   Canvas strokes are centred on the coordinate given. A 1px line drawn
+   at y = 100 covers 99.5 to 100.5, half of one pixel row and half of the
+   next, so it renders as two half-lines instead of one sharp line.
+   Landing the coordinate on a .5 puts the stroke inside a single row.
+   Almost everything here is a hairline, so this matters.
+   -------------------------------------------------------------------- */
+
+const crisp = v => Math.round(v) + 0.5;
+
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+
+/* Smooth at both ends, close to constant speed through the middle.
+   Sine rather than a cubic because the middle of the animation is meant
+   to feel like time passing at a steady rate; a cubic noticeably
+   sprints through the centre. */
+/* THE REVEAL SPEED PROFILE.
+
+   Not a named easing curve but the integral of one, which is the
+   easier thing to reason about. Picture the speed of the reveal front:
+   it ramps linearly from a standstill up to cruising speed over the
+   first RAMP of the run, then holds that speed to the end. This
+   function is the distance covered by that profile, normalised so it
+   arrives at exactly 1.0 when the clock does.
+
+   Two things fall out of it, both of which the old ease-in-out got
+   wrong:
+
+     - it STARTS from rest, so nothing snaps into motion, but it does
+       not decelerate at the end. An ease-out tail meant the last
+       seconds crawled through almost no years, the final citations
+       were already on screen, and the counter sat at its final value
+       while the animation limped to a stop. Now the last line lands
+       on the last frame.
+
+     - past the ramp the front moves at a CONSTANT rate, so equal time
+       on screen means equal time in the data. The counter still
+       appears to leap when the stamp lands, because it counts only
+       post-retraction citations: it is pinned at zero until that
+       moment by definition, then climbs at the real rate. The
+       acceleration is the data's, not a curve's. */
+const RAMP = 0.18;
+
+function revealDistance(p) {
+  if (p >= 1) return 1;
+  const total = 1 - RAMP / 2;                    // area under the whole profile
+  if (p < RAMP) return (p * p / (2 * RAMP)) / total;   // still ramping up
+  return (p - RAMP / 2) / total;                       // cruising
+}
+
+const easeOutCubic  = p => 1 - Math.pow(1 - p, 3);
+
+/* --------------------------------------------------------------------
+   WHAT THE CURRENT FRAME SHOWS
+
+   Every drawing function reads these two numbers and nothing else about
+   time. That keeps the animation and the drawing completely separate:
+   the loop's only job is to move these values, and a static frame is
+   just the same drawing code with frontier = Infinity.
+
+     frontier — reveal citations whose t is at or before this year
+     press    — 0..1, how far the stamp has landed (0 = not yet struck)
+     stage    — which view: 0 one paper, 1 the whole field,
+                 2 the map of biomedical research. Fractional values
+                 are the crossfade between neighbours.
+     dim      — multiplier on the pre-retraction fan, 1 until the strike
+   -------------------------------------------------------------------- */
+
+const VIEW = {
+  frontier: Infinity,
+  press: 1,
+  stage: 0,
+  dim: 1,
+  axisIn: 1,      // 0..1, the time axis drawing itself in on load
+  mapReveal: 1,   // 0..1, the retracted papers landing on the map
+};
+
+/* Someone who asked their OS for less motion should not be handed a
+   twelve-second autoplay. They get the finished picture instead, which
+   carries the argument on its own; Play is still there. */
+const REDUCED_MOTION =
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Crossfading the two views means drawing both at partial opacity. But
+   globalAlpha REPLACES rather than multiplies, so a drawing function
+   that sets its own opacity would wipe out the crossfade. Everything
+   below therefore goes through setAlpha(), which folds the two
+   together. FADE is the group's opacity; the argument is the mark's
+   own. */
+let FADE = 1;
+const setAlpha = a => { ctx.globalAlpha = a * FADE; };
+
+/* --------------------------------------------------------------------
+   6. LAYOUT
+
+   The handful of y positions derived from the current canvas height.
+   Computed once per frame and handed to each drawing function, so no
+   two of them can disagree about where the axis is.
+   -------------------------------------------------------------------- */
+
+function layout() {
+  const axisY = crisp(H * AXIS_Y_FRACTION);
+
+  /* THE STAMP GETS ITS OWN BAND, above everything else.
+
+     Placing it among the columns meant choosing between two bad
+     options: centred on the retraction it covered the posthumous
+     columns, and pushed aside to clear them it floated in the middle
+     of the arcs with nothing connecting it to the year it marks.
+
+     Reserving a strip at the top and starting the columns underneath
+     it removes the choice. The stamp sits directly over the
+     retraction with its line running down to the axis, so it reads as
+     a label on that moment rather than as something dropped onto the
+     drawing. It costs the columns the height of one stamp. */
+  const m = stampMetrics();
+  const rot = STAMP_ROT_DEG * Math.PI / 180;
+  const stampH = IMPACT_SCALE * (Math.abs(Math.sin(rot)) * m.boxW +
+                                 Math.abs(Math.cos(rot)) * m.boxH);
+
+  const bandTop = Math.max(FIELD_TOP_PX, H * 0.04);
+  const stampCY = bandTop + stampH / 2;
+
+  return {
+    axisY,
+    fanTop:   stampCY + stampH / 2 + STAMP_DROP_GAP + 6,
+    stampCY,
+    fieldTop: Math.max(FIELD_TOP_PX, H * FIELD_TOP_FRACTION),
+    mapBottom: FIELD_BOTTOM_PX || H,
+  };
+}
+
+/* --------------------------------------------------------------------
+   7. THE DATA, AND TURNING IT INTO LINES
+
+   papers.json gives citations_by_year: a year mapped to HOW MANY
+   citations happened that year. The picture needs ONE LINE PER CITATION,
+   so that count has to be expanded into individual lines.
+
+   Each line stores only three things:
+
+     year — the integer year it belongs to, which decides its colour
+     t    — where it ends, as a fractional year, which decides its x
+     u    — 0..1, how far up the fan's opening this line sits
+
+   Deliberately no pixel coordinates. Pixels depend on the window size,
+   and this list is built once; keeping it in abstract units means a
+   resize re-maps the same fan instead of generating a different one.
+   -------------------------------------------------------------------- */
+
+let PAPERS    = [];   // every record, for the field view
+let PAPER_AT  = 0;    // which one is on the stand
+let PAPER     = null;  // the one on show in the single view
+let LINES     = [];
+let LAST_YEAR = YEAR_MAX;
+let PEAK_YEAR = 1;    // busiest year, sets the column scale
+
+/* Fit the axis to the data instead of assuming 1995-2026.
+
+   This matters more than it looks. OpenAlex only reports citations per
+   year for roughly the last fifteen years, so fetch_papers.py refuses
+   any paper published before that window opens — otherwise the missing
+   early years would all be BEFORE-retraction citations, and dropping
+   them would inflate the posthumous share in our own favour. The
+   honest dataset therefore starts around 2012, and an axis hard-coded
+   to 1995 would leave half the page permanently blank. */
+function fitYearRange() {
+  if (PAPERS.length === 0) return;
+
+  let lo = Infinity;
+  let hi = -Infinity;
+
+  for (const p of PAPERS) {
+    if (p.published_year < lo) lo = p.published_year;
+    for (const y in p.citations_by_year) {
+      const n = Number(y);
+      if (n > hi) hi = n;
+    }
+  }
+
+  YEAR_MIN = lo;
+  YEAR_MAX = hi + 1;   // +1 so the final year has room to the right
+}
+
+/* A seeded pseudo-random generator (mulberry32). Math.random() cannot be
+   used here: this list is rebuilt on load, and anything random would
+   deal a different fan each time. A fixed seed means the jitter below is
+   scattered but identical on every run, so the picture you rehearse is
+   the picture the judge sees. */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function buildLines(paper) {
+  const rand  = mulberry32(FAN_SEED);
+  const years = Object.keys(paper.citations_by_year)
+                      .map(Number)
+                      .sort((a, b) => a - b);
+
+  const lines = [];
+
+  /* The busiest single year. Every citation's height is measured in
+     units of this, so a column's height IS the citation rate: a year
+     with twice the citations stands twice as tall. One shared step
+     for the whole paper, never rescaled per year — rescaling each
+     year to a fixed height is exactly what would make a quiet year
+     look as busy as the peak. */
+  PEAK_YEAR = Math.max(1, ...years.map(y => paper.citations_by_year[y]));
+
+  for (const year of years) {
+    const n = paper.citations_by_year[year];
+
+    for (let i = 0; i < n; i++) {
+      /* t: where it lands, as a fractional year. The data records
+         only the year, so spreading them inside it is a drawing
+         decision, not a claim. Narrow and centred, so each year reads
+         as its own column with a soft edge rather than a hard rule.
+
+         Kept separate from `year`: position uses t, the before/after
+         test uses the integer, so no citation can be nudged across
+         the retraction by a rendering choice. */
+      const t = year + 0.5 + (rand() - 0.5) * COLUMN_SPREAD;
+
+      // k: how high up its own year's column this citation sits.
+      lines.push({ year, t, k: i });
+    }
+  }
+
+  return lines;
+}
+
+/* --------------------------------------------------------------------
+   8. DRAWING THE AXIS
+
+   Order of operations inside a canvas draw:
+     a. clear the previous frame
+     b. set the style (colour, width, font) BEFORE drawing; canvas is a
+        state machine, not a scene graph, and keeps no record of shapes,
+        only of the settings current at the moment each one was drawn
+     c. describe a path, then stroke or fill it
+   -------------------------------------------------------------------- */
+
+function drawAxis(g) {
+  const axisY = g.axisY;
+
+  setAlpha(1);
+  ctx.strokeStyle = COLOR.rule;
+  ctx.lineWidth   = 1;
+
+  // beginPath discards the previous path. Without it, every later
+  // stroke() redraws all earlier lines as well.
+  // The rule grows from the left rather than appearing whole.
+  const sweepTo = EDGE + (W - EDGE * 2) * VIEW.axisIn;
+
+  ctx.beginPath();
+  ctx.moveTo(EDGE, axisY);
+  ctx.lineTo(sweepTo, axisY);
+  ctx.stroke();
+
+  ctx.fillStyle    = COLOR.inkSoft;
+  ctx.font         = `400 ${LABEL_PX}px ${DATA_FONT}`;
+  ctx.textAlign    = 'center';   // the x passed in is the label's centre
+  ctx.textBaseline = 'top';      // the y passed in is the label's top edge
+
+  // letterSpacing is a newer canvas property; guarded so older browsers
+  // fall through rather than throwing.
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0.06em';
+
+  // Decades are too sparse once the span narrows: real data starts in
+  // 2012, and a 2012-2027 axis labelled every ten years carries a
+  // single label. Step down to five when the range is short.
+  const every = (YEAR_MAX - YEAR_MIN) <= 24 ? 5 : 10;
+  const firstLabel = Math.ceil(YEAR_MIN / every) * every;
+
+  for (let year = firstLabel; year <= YEAR_MAX; year += every) {
+    const x = crisp(xOfYear(year));
+
+    /* A year appears as the rule reaches it, not before, and fades up
+       over the following stretch rather than popping. The ticks are
+       therefore laid down in time order, which is the same order
+       everything else on this page happens in. */
+    const arrived = clamp01((sweepTo - x) / 60);
+    if (arrived <= 0) continue;
+    setAlpha(arrived);
+
+    ctx.beginPath();
+    ctx.moveTo(x, axisY);
+    ctx.lineTo(x, axisY + TICK_LEN);
+    ctx.stroke();
+
+    ctx.fillText(String(year), x, axisY + LABEL_GAP);
+  }
+
+  setAlpha(1);
+
+  // Reset so it cannot leak into text drawn by later stages.
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+}
+
+/* --------------------------------------------------------------------
+   9. DRAWING THE FAN
+
+   Every citation line is a ray leaving the publication dot. Two numbers
+   decide where it goes:
+
+     x — fixed by the year the citation happened, via xOfYear()
+     y — how high the ray has climbed by the time it reaches that x
+
+   The y is what makes this a fan rather than a bar chart. Each line has
+   a constant SLOPE, so the further right it travels the higher it gets:
+
+     y = axisY - u * maxSlope * dx        dx = distance from the dot
+
+   A citation one year after publication barely lifts off the axis. A
+   citation twenty years later climbs most of the page. Because every
+   line leaves the same point at its own fixed angle, no two lines ever
+   cross, and the whole thing opens out like a hand of cards.
+
+   maxSlope is calibrated so that u = 1 at the paper's LAST cited year
+   lands exactly on fanTop. Whatever the publication year, the fan fills
+   the space it has been given.
+   -------------------------------------------------------------------- */
+
+function drawFan(g) {
+  if (!PAPER || LINES.length === 0) return;
+
+  const dotX = xOfYear(PAPER.published_year);
+  const span = xOfYear(LAST_YEAR + 1) - dotX;
+  if (span <= 0) return;
+
+  /* ONE STEP FOR THE WHOLE PAPER. The busiest year is allowed to
+     reach fanTop and every other year gets the same pixels per
+     citation, which is what makes height mean rate. */
+  const step = (g.axisY - g.fanTop) / PEAK_YEAR;
+
+  const markX    = xOfYear(PAPER.retracted_year);
+  const oy = g.axisY;
+
+  /* THE ARCS.
+
+     Each citation travels from the publication dot to where it
+     landed, on a curve, because an arc reads as something going
+     somewhere in a way a straight ray does not.
+
+     Drawn TWICE. First every arc in faded ink, end to end. Then the
+     post-retraction ones again in red, with the canvas clipped to the
+     right of the retraction so only the part of each arc that lies
+     after the verdict is repainted.
+
+     That clip is doing the same job the straight-line version did by
+     proportion, but a quadratic curve cannot be split that way, and
+     subdividing the bezier by hand would be a lot of arithmetic to
+     get the same answer. Clipping gets it exactly right for free.
+
+     The rule it enforces is the one the whole piece runs on: an arc
+     from 2024 has to fly back over the valid years to reach the dot,
+     and painting that stretch red would colour a period when the
+     citation had not happened yet. */
+  const arcAlpha = ARC_ALPHA * (0.6 + 0.4 * VIEW.dim);
+
+  function sweep(onlyAfter) {
+    for (let i = 0; i < LINES.length; i++) {
+      const line = LINES[i];
+      if (onlyAfter && line.year < PAPER.retracted_year) continue;
+
+      // How far along its flight this one is. Ahead of the reveal it
+      // does not exist; just behind it, it is still in the air.
+      const p = clamp01((VIEW.frontier - line.t) / ARC_TRAVEL + 1);
+      if (p <= 0) continue;
+
+      const endX = xOfYear(line.t);
+      const dx   = endX - dotX;
+      if (dx <= 0) continue;
+
+      const landY = oy - line.k * step;
+      const tipX  = dotX + dx * p;
+      const tipY  = oy + (landY - oy) * p;
+      const apexY = landY - (oy - landY) * ARC_LIFT - ARC_MIN_LIFT;
+
+      ctx.beginPath();
+      ctx.moveTo(dotX, oy);
+      ctx.quadraticCurveTo((dotX + tipX) / 2,
+                           oy + (apexY - oy) * Math.sin(p * Math.PI / 2),
+                           tipX, tipY);
+      ctx.stroke();
+    }
+  }
+
+  ctx.strokeStyle = COLOR.faded;
+  ctx.lineWidth   = ARC_WIDTH;
+  setAlpha(arcAlpha);
+  sweep(false);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(markX, 0, Math.max(0, W - markX), H);
+  ctx.clip();
+  ctx.strokeStyle = COLOR.stamp;
+  ctx.lineWidth   = ARC_WIDTH_AFTER;
+  setAlpha(ARC_ALPHA_AFTER);
+  sweep(true);
+  ctx.restore();
+
+  /* THE LANDINGS. One dot per citation, at its own year, coloured by
+     which side of the retraction that year falls on. A column of
+     faded dots while the paper was valid, a column of red ones after
+     it was declared invalid, and the height of each column is how
+     many citations that year brought. Drawn over the arcs, so the
+     data sits on top of its own trails. */
+  for (const after of [false, true]) {
+    ctx.fillStyle = after ? COLOR.stamp : COLOR.faded;
+    setAlpha(after ? DOT_ALPHA : DOT_ALPHA * VIEW.dim);
+
+    for (let i = 0; i < LINES.length; i++) {
+      const line = LINES[i];
+      if ((line.year >= PAPER.retracted_year) !== after) continue;
+
+      const p = clamp01((VIEW.frontier - line.t) / ARC_TRAVEL + 1);
+      if (p < 0.98) continue;                 // only once it has arrived
+
+      const endX = xOfYear(line.t);
+      if (endX - dotX <= 0) continue;
+
+      ctx.beginPath();
+      ctx.arc(endX, oy - line.k * step,
+              DOT_R_CITE, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* The column being read.
+
+     A bracket either side of the year rather than a filled
+     highlight: the dots inside it ARE the data, and covering them to
+     say "this one" would hide the thing being pointed at. */
+  if (HOVER_YEAR !== null && PAPER.citations_by_year[String(HOVER_YEAR)]) {
+    const n    = PAPER.citations_by_year[String(HOVER_YEAR)];
+    const cx   = xOfYear(HOVER_YEAR + 0.5);
+    const hw   = (xOfYear(YEAR_MIN + 1) - xOfYear(YEAR_MIN)) * 0.42;
+    const topY = oy - n * step - 8;
+
+    setAlpha(0.8);
+    ctx.strokeStyle = COLOR.inkSoft;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(crisp(cx - hw), topY); ctx.lineTo(crisp(cx - hw), oy);
+    ctx.moveTo(crisp(cx + hw), topY); ctx.lineTo(crisp(cx + hw), oy);
+    ctx.stroke();
+  }
+
+  setAlpha(1);
+}
+
+/* Strokes one side of the retraction. wantAfter picks which side.
+
+   The retraction year itself counts as AFTER, which is the >= below and
+   the one rule the brief fixes in advance. Note it tests line.year, the
+   integer, never line.t: the sub-year position is a drawing device and
+   must not be able to move a citation across the boundary. */
+
+/* One filled dot per citation, at the point its line ends. Same
+   filtering as strokeLines, so a citation that has not happened yet has
+   no dot either. */
+
+/* --------------------------------------------------------------------
+   10. THE STAMP
+
+   A rectangle with RETRACTED inside it, tipped a few degrees off level
+   so it reads as something pressed onto the page rather than typeset
+   into it, and drawn slightly transparent so the fan shows through.
+
+   Canvas cannot draw a rotated rectangle directly. Instead you rotate
+   the COORDINATE SYSTEM, draw the box square around the origin, and put
+   the system back. Two rules make that safe:
+
+     - save() / restore() push and pop the entire context state, the
+       transform included. Without the restore, every later frame would
+       rotate another 8 degrees and the page would slowly spin.
+     - translate() before rotate(). rotate() always turns about the
+       origin, so the origin has to be moved to the stamp's centre
+       first, otherwise the box swings about the top-left of the canvas
+       and flies off screen.
+   -------------------------------------------------------------------- */
+
+/* The stamp has to scale with the drawing.
+
+   At a fixed size it is fine on a laptop and absurd on a phone: a
+   185px box on a 338px canvas covers the retraction it is supposed to
+   mark and buries the posthumous columns, which are the finding.
+   Everything about it is therefore derived from one size, which is
+   tied to the canvas width and clamped at both ends so it never
+   becomes illegibly small or cartoonishly large. */
+function stampSize() {
+  const px = Math.max(10, Math.min(STAMP_FONT_PX, W / 52));
+  return {
+    font:  px,
+    track: px * 0.39,
+    padX:  px * 0.90,
+    padY:  px * 0.72,
+    halo:  Math.max(2.5, Math.min(STAMP_HALO, px * 0.22)),
+  };
+}
+
+function stampMetrics() {
+  // Measure with the exact font and tracking that will be used, or the
+  // border ends up fitted to a different string than the one drawn.
+  const z = stampSize();
+  ctx.font = `700 ${z.font}px ${DATA_FONT}`;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${z.track}px`;
+
+  const m = ctx.measureText(STAMP_TEXT);
+
+  // measureText's width includes one trailing gap after the final
+  // letter, which would push the text visibly left of centre inside its
+  // own box. Subtract it to get the width of the ink itself.
+  const inkW = 'letterSpacing' in ctx ? m.width - z.track : m.width;
+
+  // Cap height measured off the glyphs rather than assumed from the
+  // font size, so the box hugs the capitals instead of the invisible
+  // room a font reserves for descenders it does not use here.
+  const inkH = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+  return {
+    inkW, inkH,
+    boxW: inkW + z.padX * 2,
+    boxH: inkH + z.padY * 2,
+    z,
+  };
+}
+
+function drawStamp(g) {
+  if (!PAPER) return;
+  if (VIEW.press <= 0) return;     // not struck yet
+
+  /* THE IMPACT.
+
+     A stamp coming down at the page is bigger and off-square a moment
+     before it lands, then settles. easeOutCubic decelerates hard, so
+     most of that movement happens in the first fraction of the beat and
+     the last part is a slow settle, which is what makes it read as
+     weight rather than as a zoom.
+
+       settle 0 -> struck, oversized, tilted further, transparent
+       settle 1 -> at rest
+
+     The alpha ramps faster than the movement (the x2 below), so the ink
+     is fully there while the box is still settling, rather than fading
+     in after it has stopped. */
+  const settle = easeOutCubic(clamp01(VIEW.press));
+  const scale  = 1 + (IMPACT_SCALE - 1) * (1 - settle);
+  const tilt   = IMPACT_TILT_DEG * (1 - settle);
+  const alpha  = STAMP_ALPHA * clamp01(VIEW.press * 2);
+
+  const rot = (STAMP_ROT_DEG - tilt) * Math.PI / 180;
+  const m   = stampMetrics();
+
+  const markX = xOfYear(PAPER.retracted_year);
+
+  // A rotated box is wider than the box itself. Half its horizontal
+  // reach is half the width along the tilted axis plus half the height
+  // leaning into it. Used to keep the stamp on the page when the
+  // retraction year sits near an edge.
+  // Scaled by IMPACT_SCALE because the stamp is at its biggest during
+  // the strike; clamping to the resting size would let it hang off the
+  // page for half a second when a paper is retracted near either edge.
+  const halfW = IMPACT_SCALE * (Math.abs(Math.cos(rot)) * m.boxW +
+                                Math.abs(Math.sin(rot)) * m.boxH) / 2;
+  const halfH = (Math.abs(Math.sin(rot)) * m.boxW +
+                 Math.abs(Math.cos(rot)) * m.boxH) / 2;
+
+  /* Sit the stamp to the LEFT of the marker rather than centred on it.
+
+     Centred, the box straddles the retraction: half of it lies over
+     the posthumous columns, which are the whole finding, and covers
+     exactly the data the picture exists to show. Pushed left, it
+     covers only the paper's valid years — where the columns are
+     shorter and less is at stake — and its drop line still lands on
+     the true retraction year, so nothing about what it marks changes.
+
+     Clamped afterwards so a paper retracted early in its life does
+     not push the box off the left edge. */
+  // Centred on the retraction, and only nudged if that would put it
+  // off the page — which the drop line then visibly corrects for.
+  const cx = Math.min(Math.max(markX, halfW + EDGE), W - halfW - EDGE);
+  const cy = g.stampCY;
+
+  /* Every mark below is drawn twice: once in paper, slightly wider,
+     then again in red on top.
+
+     The stamp and the post-retraction lines are the same red, and where
+     the fan is dense it saturates to exactly that red, so a red mark
+     laid over it disappears completely. The wider paper pass underneath
+     gives each mark its own edge to sit against. It is a few pixels
+     wide, so the fan still reads straight through the middle of the
+     box, which is the part that has to stay transparent. */
+
+  /* The drop line, connecting the stamp to its year on the axis. Drawn
+     before the box so the box sits over its top end. It hangs from the
+     stamp's lowest point and lands on the true retraction year, which
+     is what anchors the stamp to the timeline even when the clamp above
+     has nudged the box sideways. */
+  ctx.save();
+  setAlpha(alpha);
+
+  const dropX   = crisp(markX);
+  const dropTop = cy + halfH + STAMP_DROP_GAP;
+
+  // The line only starts running down once the box is most of the way
+  // settled, so the order of events reads: strike, then connect.
+  const dropP = clamp01((VIEW.press - DROP_START) / (1 - DROP_START));
+  const dropY = dropTop + (g.axisY - dropTop) * easeOutCubic(dropP);
+
+  ctx.beginPath();
+  ctx.moveTo(dropX, dropTop);
+  ctx.lineTo(dropX, dropY);
+
+  ctx.strokeStyle = COLOR.paper;
+  ctx.lineWidth   = STAMP_DROP_HALO;
+  ctx.stroke();                 // the same path, stroked twice
+
+  ctx.strokeStyle = COLOR.stamp;
+  ctx.lineWidth   = 1;
+  ctx.stroke();
+
+  ctx.restore();
+
+  /* The box and its word. */
+  ctx.save();
+  setAlpha(alpha);
+
+  // translate, then rotate, then scale. Order matters: each one applies
+  // in the coordinate system left by the one before it, so scaling last
+  // means the box grows about its own centre rather than sliding away
+  // from the retraction year as it shrinks.
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.scale(scale, scale);
+
+  ctx.strokeStyle = COLOR.paper;
+  ctx.lineWidth   = STAMP_BORDER_W + m.z.halo;
+  ctx.strokeRect(-m.boxW / 2, -m.boxH / 2, m.boxW, m.boxH);
+
+  ctx.strokeStyle = COLOR.stamp;
+  ctx.lineWidth   = STAMP_BORDER_W;
+  ctx.strokeRect(-m.boxW / 2, -m.boxH / 2, m.boxW, m.boxH);
+
+  ctx.font         = `700 ${m.z.font}px ${DATA_FONT}`;
+  ctx.textAlign    = 'left';        // centred by hand, using inkW
+  ctx.textBaseline = 'alphabetic';  // the only baseline that is exact
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${m.z.track}px`;
+
+  // strokeText outlines the glyphs, and half that outline falls INSIDE
+  // them, which at this weight would close up the counters. Filling
+  // afterwards paints the glyph back over its own outline, so only the
+  // outer half of the halo survives.
+  ctx.lineJoin    = 'round';
+  ctx.strokeStyle = COLOR.paper;
+  ctx.lineWidth   = m.z.halo;
+  ctx.strokeText(STAMP_TEXT, -m.inkW / 2, m.inkH / 2);
+
+  ctx.fillStyle = COLOR.stamp;
+  ctx.fillText(STAMP_TEXT, -m.inkW / 2, m.inkH / 2);
+
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+  // restore() undoes the translate, the rotate and the alpha together.
+  ctx.restore();
+}
+
+/* --------------------------------------------------------------------
+   11. THE PUBLICATION DOT
+   Drawn after the fan so the thousands of lines converging on it cannot
+   bury it.
+   -------------------------------------------------------------------- */
+
+function drawPublicationDot(g) {
+  if (!PAPER) return;
+
+  setAlpha(1);
+  ctx.fillStyle = COLOR.ink;
+  ctx.beginPath();
+  ctx.arc(xOfYear(PAPER.published_year), g.axisY, DOT_R, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* --------------------------------------------------------------------
+   THE SECOND RING
+
+   The view the whole project was missing.
+
+   Every other treatment of retracted-paper citation counts the FIRST
+   ring: papers that cite the retracted paper directly. Those authors
+   at least held it. The second ring is papers that cite one of THOSE,
+   and their authors almost certainly have no idea a retraction sits
+   anywhere in their reference chain. That is the claim spreading
+   rather than merely persisting.
+
+   Drawn as a second generation growing out of the first: each direct
+   citation is a line to a point, and out of that point grows its own
+   small fan of everything that went on to cite it.
+
+   WHAT THE NUMBER MEANS, PRECISELY. Summing the branches counts a
+   paper once per route it arrived by, so a paper citing three
+   different direct citers is counted three times. That is
+   TRANSMISSION PATHS, and it is the right unit for this picture,
+   because each path is a separate act of passing the claim on. The
+   deduplicated count of distinct papers is smaller (57,765 against
+   65,736 here) and is the number to quote as a headline. The two
+   answer different questions and are never mixed.
+   -------------------------------------------------------------------- */
+
+let TREE = null;
+
+function drawRings(g) {
+  if (!TREE || !TREE.peak) return;
+
+  const markX = xOfYear(TREE.retracted_year);
+
+  /* ONE SCALE FOR BOTH SERIES, set by the taller of them.
+
+     That is the whole argument. Giving each series its own scale
+     would let them look comparable, which is exactly the thing that
+     is not true. Shared, the direct citations shrink to about three
+     percent of the height of what they set off, and the gap IS the
+     finding. */
+  const step = (g.axisY - g.fanTop) / TREE.peak;
+
+  const yearW = (xOfYear(YEAR_MIN + 1) - xOfYear(YEAR_MIN));
+  const wide  = yearW * 0.52;   // second-hand, behind
+  const slim  = yearW * 0.26;   // direct, in front
+
+  /* SECOND HAND, behind and paler: every paper that cited a paper
+     that cited this one, in the year it did so. */
+  for (const y in TREE.g2) {
+    const year = Number(y);
+    if (year > VIEW.frontier) continue;
+
+    const n = TREE.g2[y];
+    const after = year >= TREE.retracted_year;
+    ctx.fillStyle = after ? COLOR.stamp : COLOR.faded;
+    setAlpha(after ? 0.55 : 0.55 * VIEW.dim);
+
+    const x = xOfYear(year + 0.5);
+    ctx.fillRect(x - wide / 2, g.axisY - n * step, wide, n * step);
+  }
+
+  /* DIRECT, in front and solid. Small by comparison, and its own
+     shape matters: it peaks and then falls away, because people do
+     partly stop citing a retracted paper once they know. The series
+     behind it does not fall away, because those authors never find
+     out. */
+  for (const y in TREE.g1) {
+    const year = Number(y);
+    if (year > VIEW.frontier) continue;
+
+    const n = TREE.g1[y];
+    const after = year >= TREE.retracted_year;
+    ctx.fillStyle = after ? COLOR.stamp : COLOR.faded;
+    setAlpha(after ? 1 : VIEW.dim);
+
+    const x = xOfYear(year + 0.5);
+    ctx.fillRect(x - slim / 2, g.axisY - n * step, slim, n * step);
+  }
+
+  /* The year being read, bracketed the same way as the single paper. */
+  if (HOVER_YEAR !== null && (TREE.g1[HOVER_YEAR] || TREE.g2[HOVER_YEAR])) {
+    const cx   = xOfYear(HOVER_YEAR + 0.5);
+    const hw   = wide / 2 + 4;
+    const tall = Math.max(TREE.g1[HOVER_YEAR] || 0, TREE.g2[HOVER_YEAR] || 0);
+    const topY = g.axisY - tall * step - 8;
+
+    setAlpha(0.8);
+    ctx.strokeStyle = COLOR.inkSoft;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(crisp(cx - hw), topY); ctx.lineTo(crisp(cx - hw), g.axisY);
+    ctx.moveTo(crisp(cx + hw), topY); ctx.lineTo(crisp(cx + hw), g.axisY);
+    ctx.stroke();
+  }
+
+  setAlpha(1);
+
+  // The verdict, so the divergence can be read against it.
+  ctx.strokeStyle = COLOR.stamp;
+  ctx.lineWidth = 1;
+  setAlpha(STAMP_ALPHA);
+  ctx.beginPath();
+  ctx.moveTo(crisp(markX), g.fanTop);
+  ctx.lineTo(crisp(markX), g.axisY);
+  ctx.stroke();
+  setAlpha(1);
+}
+
+/* --------------------------------------------------------------------
+   THE MAP
+
+   The third view leaves the timeline behind and asks a different
+   question: not WHEN citations arrive, but WHERE in the literature
+   retraction happens at all.
+
+   Every point is a paper, placed by the Nomic PubMed landscape, which
+   embeds 20.7M biomedical papers in two dimensions by the similarity
+   of their titles and abstracts. Neighbours on this map are papers
+   about the same thing. Pale points are the background literature;
+   red points are the retracted ones.
+
+   The whole argument of the view is that the red is not spread evenly.
+
+   Note what this is NOT. It is a map of TOPICAL similarity, not of
+   coauthorship, so it shows that some subjects are far riskier than
+   others, not that some research groups are. Those are different
+   graphs and it would be sloppy to claim the second from the first.
+   -------------------------------------------------------------------- */
+
+let LAND = null;
+
+function mapTransform(g) {
+  /* Fit the map into the drawing area while PRESERVING ASPECT RATIO.
+     Fitting each axis independently would stretch the embedding, and
+     distance is the only thing this picture means — a stretched map
+     would make some neighbourhoods look closer than they are. So one
+     scale for both axes, and the leftover space becomes margin. */
+  // The map has no axis, so it may use the full height between the
+  // type at the top and the type at the bottom.
+  const top    = g.fieldTop;
+  const bottom = g.mapBottom;
+  const availW = W - EDGE * 2;
+  const availH = bottom - top;
+
+  const e = LAND.extent;
+  const spanX = e.x[1] - e.x[0];
+  const spanY = e.y[1] - e.y[0];
+  const scale = Math.min(availW / spanX, availH / spanY);
+
+  return {
+    scale,
+    ox: EDGE + (availW - spanX * scale) / 2 - e.x[0] * scale,
+    // y is flipped: the embedding counts upwards, the canvas downwards
+    oy: top + (availH - spanY * scale) / 2 + e.y[1] * scale,
+  };
+}
+
+function drawLandscape(g) {
+  if (!LAND) return;
+
+  const t = mapTransform(g);
+
+  /* The background literature. fillRect rather than arc: at forty
+     thousand points arcs cost several milliseconds a frame and at this
+     size a one-pixel square and a one-pixel circle are the same three
+     pixels. Drawn one at a time rather than as a single path so the
+     ink builds up where papers pile on top of each other, which is
+     what gives the map its shape. */
+  setAlpha(MAP_FIELD_ALPHA);
+  ctx.fillStyle = COLOR.faded;
+  for (let i = 0; i < LAND.field.length; i++) {
+    const p = LAND.field[i];
+    ctx.fillRect(p[0] * t.scale + t.ox, t.oy - p[1] * t.scale,
+                 MAP_DOT, MAP_DOT);
+  }
+
+  /* The retracted papers. Drawn after, larger and stronger, so they
+     read as marks ON the literature rather than as part of it. */
+  /* Each one grows into place, staggered across the reveal, so the
+     map is first the literature and only then the damage in it. The
+     stagger is keyed to the index, which is crawl order and therefore
+     scattered across the map: they arrive everywhere at once and the
+     clot becomes visible as it fills, rather than being handed over
+     finished. Index-based, so it is identical on every run. */
+  ctx.fillStyle = COLOR.stamp;
+  const n = LAND.retracted.length;
+
+  for (let i = 0; i < n; i++) {
+    /* Standard stagger: a dot's own progress is the global progress
+       shifted back by its position in the queue, then re-normalised
+       so the last one still finishes exactly when the reveal does. */
+    const local = clamp01(
+      (VIEW.mapReveal - (i / n) * MAP_STAGGER) / (1 - MAP_STAGGER));
+    if (local <= 0) continue;
+
+    const eased = easeOutCubic(local);
+    const size  = MAP_RETRACTED * eased;
+    setAlpha(MAP_RETRACTED_ALPHA * eased);
+
+    const p = LAND.retracted[i];
+    ctx.fillRect(p[0] * t.scale + t.ox - size / 2,
+                 t.oy - p[1] * t.scale - size / 2,
+                 size, size);
+  }
+
+  /* The cell being read, outlined.
+
+     Without it the readout states a rate with nothing on the map to
+     attach it to. With it you can see the patch of literature the
+     number is about, and how much of the red falls inside it. */
+  if (HOVER_CELL) {
+    const e  = LAND.extent;
+    const G  = LAND.grid;
+    const cw = (e.x[1] - e.x[0]) / G;
+    const ch = (e.y[1] - e.y[0]) / G;
+    const x0 = e.x[0] + HOVER_CELL.gx * cw;
+    const y1 = e.y[0] + (HOVER_CELL.gy + 1) * ch;
+
+    setAlpha(0.85);
+    ctx.strokeStyle = COLOR.inkSoft;
+    ctx.lineWidth   = 1;
+    ctx.strokeRect(crisp(x0 * t.scale + t.ox),
+                   crisp(t.oy - y1 * t.scale),
+                   cw * t.scale, ch * t.scale);
+  }
+
+  setAlpha(1);
+}
+
+/* --------------------------------------------------------------------
+   13. THE FRAME
+
+   One function that paints a complete frame from scratch. Later stages
+   add calls inside here. Repainting everything every time is the
+   simplest model to hold in your head, and canvas is fast enough that it
+   is also the right one.
+
+   Order matters: canvas has no z-index, so later calls paint over
+   earlier ones.
+   -------------------------------------------------------------------- */
+
+function draw() {
+  // The canvas is transparent, so clearing reveals the page behind it
+  // and no background fill is needed.
+  ctx.clearRect(0, 0, W, H);
+
+  const g = layout();
+
+  /* Each view's opacity is its distance from the current stage: full
+     strength when the stage is sitting on it, nothing once the stage
+     is a whole step away. Only the one or two views adjacent to the
+     stage are ever drawn, so the resting case still pays for one. */
+  const opacity = v => clamp01(1 - Math.abs(VIEW.stage - v));
+
+  const single = opacity(0);
+  if (single > 0) {
+    FADE = single;
+    drawFan(g);
+    drawPublicationDot(g);
+    drawStamp(g);
+  }
+
+  const map = opacity(1);
+  if (map > 0) {
+    FADE = map;
+    drawLandscape(g);
+  }
+
+  const rings = opacity(2);
+  if (rings > 0) {
+    FADE = rings;
+    drawRings(g);
+  }
+
+  /* The axis belongs to the two timeline views but means nothing on
+     the map, which has no time in it at all. So it fades out with
+     them rather than being drawn unconditionally. */
+  FADE = single + rings;
+  if (FADE > 0) drawAxis(g);
+
+  updateCounter();
+}
+
+/* --------------------------------------------------------------------
+   13. THE COUNTER
+
+   Counts the revealed lines that fall after the retraction, rather than
+   interpolating towards citations_after. Interpolating would be one
+   line of code and would be a lie: the number has to be the lines
+   actually on screen, or the figure and the picture disagree.
+
+   The count runs to citations_after exactly, because the same >= test
+   decides both.
+   -------------------------------------------------------------------- */
+
+const counterEl = document.getElementById('counter-value');
+const labelEl   = document.querySelector('.counter-label');
+const promptEl  = document.getElementById('prompt');
+
+const TEXT_SWAP_MS = 190;   // must match .swap's transition in the CSS
+
+/* Fade a line of type down, change it underneath, bring it back.
+
+   Guarded on the text actually differing, because this is called on
+   every view change and re-running it for identical text would
+   flicker the words for no reason. The timer is stored on the element
+   so a fast double-toggle cancels its own predecessor rather than
+   leaving two swaps racing to write different strings. */
+function swapText(el, text) {
+  if (!el || el.textContent === text) return;
+
+  el.classList.add('swapping');
+  clearTimeout(el._swapTimer);
+
+  el._swapTimer = setTimeout(() => {
+    el.textContent = text;
+    el.classList.remove('swapping');
+  }, TEXT_SWAP_MS);
+}
+let lastCount = -1;
+let lastBand  = -1;   // which view the counter was last counting for
+
+function updateCounter() {
+  if (!PAPER) return;
+
+  let n = 0;
+
+  if (VIEW.stage >= 1.5) {
+    // The second ring counts transmission paths, not citations.
+    n = TREE ? TREE.gen2_paths_after : 0;
+
+  } else if (VIEW.stage >= 0.5) {
+    // The map counts something else again: not citations, but the
+    // retracted papers actually located on it.
+    n = LAND ? LAND.retracted.length : 0;
+
+  } else {
+    const retracted = PAPER.retracted_year;
+    for (let k = 0; k < LINES.length; k++) {
+      const line = LINES[k];
+      if (line.year >= retracted && line.t <= VIEW.frontier) n++;
+    }
+  }
+
+  // Writing to the DOM forces the browser to re-layout that text, so
+  // only touch it when the number has actually changed. Most frames
+  // late in the animation add no new citations.
+  if (n !== lastCount) {
+    counterEl.textContent = n.toLocaleString('en-US');
+    lastCount = n;
+  }
+
+  // The label is part of the figure, not decoration: the same numeral
+  // means citations in two views and papers in the third, and an
+  // unchanged label would make the map's number a lie.
+  const label =
+      VIEW.stage >= 1.5 ? 'second-hand citations after retraction'
+    : VIEW.stage >= 0.5 ? 'retracted papers located'
+    :                     'citations after retraction';
+  swapText(labelEl, label);
+
+  /* The value leaps when the view changes — 950 becomes 91,713 —
+     because it is now counting a different thing. Fade it across that
+     one moment.
+
+     Keyed to the BAND rather than to the number: the number changes
+     on almost every frame while counting, and fading it then would
+     strobe. The band only changes when you toggle views, so this
+     fires exactly once per change and the count itself is untouched. */
+  const band = VIEW.stage >= 1.5 ? 2
+             : VIEW.stage >= 0.5 ? 1 : 0;
+
+  if (band !== lastBand) {
+    if (lastBand !== -1) {
+      counterEl.classList.add('swapping');
+      clearTimeout(counterEl._swapTimer);
+      counterEl._swapTimer = setTimeout(
+        () => counterEl.classList.remove('swapping'), TEXT_SWAP_MS);
+    }
+    lastBand = band;
+  }
+}
+
+/* --------------------------------------------------------------------
+   14. THE ANIMATION LOOP
+
+   requestAnimationFrame hands you a timestamp and asks for one frame,
+   just before the screen next refreshes. You call it again for the next
+   one. It is not a timer: if the machine is busy it simply calls you
+   less often, so the animation must be driven by MEASURED TIME rather
+   than by counting frames. Counting frames would make the whole thing
+   run slower on a tired laptop, which is the last thing you want on a
+   demo machine you have never touched.
+
+   The clock here is unusual in one way. Instead of asking "how long
+   since Play", it ACCUMULATES elapsed time into `revealMs` and simply
+   stops accumulating during the beat. That is the entire pause
+   mechanism: wall-clock time keeps running, so the stamp can land,
+   while the reveal clock is frozen and no new citations arrive.
+   -------------------------------------------------------------------- */
+
+const anim = {
+  running:  false,
+  revealMs: 0,      // the reveal clock, which the hold can freeze
+  lastNow:  0,      // timestamp of the previous frame
+  holdUntil: 0,     // wall-clock time the beat ends
+  axisMs:    0,     // clocks for the two intros below
+  mapMs:     0,
+  struckAt: null,   // wall-clock time the stamp landed
+  frameId:  0,
+  stageTarget: 0,   // which view the toggle is heading for
+};
+
+/* Put a different paper on the stand.
+
+   Adopted from the teammate's build, which lets you arrow through the
+   set. At a judging table someone always says "show me another one",
+   and being able to is worth more than any amount of polish on a
+   single fixed example. It also quietly answers the suspicion that
+   the featured paper was cherry-picked, because the judge picks the
+   next one.
+
+   Everything derived from the paper is rebuilt here, and nowhere else
+   holds a stale copy: LINES, the fan's right-hand limit, the caption,
+   and whatever framing copy had been earned by the previous run. */
+function loadPaper(index) {
+  if (!PAPERS.length) return;
+
+  PAPER_AT = ((index % PAPERS.length) + PAPERS.length) % PAPERS.length;
+  PAPER = PAPERS[PAPER_AT];
+
+  LAST_YEAR = Math.max(...Object.keys(PAPER.citations_by_year).map(Number));
+  LINES = buildLines(PAPER);
+  lastCount = -1;              // force the counter to repaint
+
+  clearFraming();
+  setCaption(anim.stageTarget);
+
+  /* Replay the caption's entrance so a new paper's title ARRIVES
+     rather than silently swapping underneath the old one. Reading
+     offsetWidth forces the browser to flush the removal before the
+     class goes back on; without that the animation never restarts,
+     because as far as the style engine is concerned it never left. */
+  const cap = document.querySelector('.caption');
+  cap.style.animation = 'none';
+  void cap.offsetWidth;
+  cap.style.animation = '';
+
+  if (REDUCED_MOTION) showFinalFrame(); else play();
+}
+
+function firstYear() {
+  return PAPER ? PAPER.published_year : YEAR_MIN;
+}
+
+function frame(now) {
+  // Time actually elapsed since the previous frame, however long the
+  // browser took to get back to us.
+  /* Time since the previous frame — but CLAMPED.
+
+     requestAnimationFrame stops firing entirely while a tab is
+     hidden. Come back after thirty seconds away and the next frame
+     arrives with dt = 30,000ms, which this clock would pour straight
+     into the reveal and teleport the animation to its end. On a demo
+     machine that means switching to your slides and back kills the
+     run you were about to show.
+
+     Clamping to a couple of frames' worth means a long pause simply
+     resumes where it left off, at the cost of the reveal being those
+     few missed milliseconds behind wall-clock, which nobody can see. */
+  const dt = Math.min(now - anim.lastNow, MAX_FRAME_MS);
+  anim.lastNow = now;
+
+  // Frozen during the beat. Everything else below still advances.
+  if (now >= anim.holdUntil) anim.revealMs += dt;
+
+  // The view crossfade runs on the same clock, moving towards whatever
+  // the toggle last asked for.
+  if (VIEW.stage !== anim.stageTarget) {
+    const stepSize = dt / FIELD_FADE_MS;
+    VIEW.stage = anim.stageTarget > VIEW.stage
+      ? Math.min(anim.stageTarget, VIEW.stage + stepSize)
+      : Math.max(anim.stageTarget, VIEW.stage - stepSize);
+  }
+
+  /* THE AXIS DRAWS ITSELF, once, on load.
+
+     The rule and its years are the frame everything else is measured
+     against, so they arrive first and alone. It also means the page
+     is never briefly a blank sheet: something is happening from the
+     first frame. */
+  anim.axisMs = Math.min(AXIS_IN_MS, anim.axisMs + dt);
+  VIEW.axisIn = easeOutCubic(anim.axisMs / AXIS_IN_MS);
+
+  /* THE MAP'S RETRACTED PAPERS LAND rather than simply being there.
+
+     Runs forward while the map is the destination and rewinds when it
+     is not, so arriving at the map a second time replays it instead
+     of showing a picture that has already happened. */
+  const toMap = anim.stageTarget === 1;
+  anim.mapMs = Math.max(0, Math.min(MAP_IN_MS, anim.mapMs + (toMap ? dt : -dt * 2)));
+  VIEW.mapReveal = easeOutCubic(anim.mapMs / MAP_IN_MS);
+
+  const p = clamp01(anim.revealMs / DURATION_MS);
+
+  // The reveal front, in years. Runs from publication to just past the
+  // last cited year.
+  const from = firstYear();
+  const to   = LAST_YEAR + 1;
+  VIEW.frontier = from + revealDistance(p) * (to - from);
+
+  // The one moment the whole thing is built around. The first time the
+  // front reaches the retraction year, strike the stamp and freeze the
+  // reveal so the two events do not compete for attention.
+  if (anim.struckAt === null && VIEW.frontier >= PAPER.retracted_year) {
+    anim.struckAt = now;
+
+    // Frozen for the stamp's own movement AND a full second of
+    // stillness after it has settled. Holding only for the movement
+    // was the bug: the reveal restarted the instant the stamp stopped,
+    // so there was never a frame where nothing at all was happening,
+    // and the strike read as a hiccup rather than a full stop.
+    anim.holdUntil = now + IMPACT_MS + STRIKE_DWELL_MS;
+
+    showBeat();
+  }
+
+  const sinceStrike = anim.struckAt === null ? 0 : now - anim.struckAt;
+
+  VIEW.press = anim.struckAt === null ? 0 : clamp01(sinceStrike / IMPACT_MS);
+
+  /* The grey fan steps back as the stamp comes down, over DIM_MS, which
+     is shorter than the stamp's own movement so the recession is
+     already underway when the box lands.
+
+     It is not restored afterwards, and that is deliberate. Undimming
+     would say the valid years came back, which is the opposite of what
+     happened. Leaving them down means everything drawn from this
+     moment on is the only thing at full strength on the page. */
+  VIEW.dim = anim.struckAt === null
+    ? 1
+    : 1 - (1 - GREY_DIM) * easeOutCubic(clamp01(sinceStrike / DIM_MS));
+
+  draw();
+
+  // Keep going while EITHER the reveal or the crossfade has work left.
+  // Stopping on the reveal alone would freeze a half-finished fade.
+  const introsDone = anim.axisMs >= AXIS_IN_MS &&
+                     (toMap ? anim.mapMs >= MAP_IN_MS : anim.mapMs <= 0);
+
+  if (p >= 1 && VIEW.stage === anim.stageTarget && introsDone) {
+    anim.running = false;     // hold the final frame
+    showRatio();
+    showVerdict();
+    return;
+  }
+
+  anim.frameId = requestAnimationFrame(frame);
+}
+
+/* Restarts the loop if it has already settled. Any control that
+   changes what should be on screen calls this rather than assuming the
+   loop is still running. */
+function wake() {
+  if (anim.running) return;
+  anim.running = true;
+  anim.lastNow = performance.now();
+  anim.frameId = requestAnimationFrame(frame);
+}
+
+function play() {
+  cancelAnimationFrame(anim.frameId);
+  clearFraming();
+
+  anim.running   = true;
+  anim.revealMs  = 0;
+  anim.holdUntil = 0;
+  anim.struckAt  = null;
+
+  VIEW.frontier = -Infinity;
+  VIEW.press    = 0;
+  VIEW.dim      = 1;
+  anim.axisMs   = 0;          // the rule redraws itself on every play
+
+  // performance.now() rather than Date.now(): the same clock rAF uses,
+  // and it cannot jump if the system clock is corrected mid-animation.
+  anim.lastNow  = performance.now();
+  anim.frameId  = requestAnimationFrame(frame);
+}
+
+/* The end state without playing through to it. Sets exactly what the
+   last frame of a full run leaves behind, so "finished" is described
+   in one place only. */
+function showFinalFrame() {
+  cancelAnimationFrame(anim.frameId);
+  anim.running  = false;
+  anim.revealMs = DURATION_MS;
+  anim.struckAt = performance.now() - IMPACT_MS;
+
+  VIEW.frontier = Infinity;
+  VIEW.press    = 1;
+  VIEW.dim      = GREY_DIM;
+
+  draw();
+  showRatio();
+  showVerdict();
+}
+
+function reset() {
+  cancelAnimationFrame(anim.frameId);
+  clearFraming();
+
+  anim.running  = false;
+  anim.revealMs = 0;
+  anim.struckAt = null;
+
+  VIEW.frontier = -Infinity;   // nothing has happened yet
+  VIEW.press    = 0;
+  VIEW.dim      = 1;
+
+  draw();
+}
+
+/* --------------------------------------------------------------------
+   THE FRAMING LAYER
+
+   The drawing carries the argument, but a judge walking up mid-run has
+   no way to know what they are looking at. These three pieces of copy
+   are timed to the animation rather than shown all at once: the ratio
+   appears with the counter, the beat marks the strike, and the verdict
+   arrives only once the picture has finished making its case.
+   -------------------------------------------------------------------- */
+
+const ratioEl = document.getElementById('counter-ratio');
+const beatEl  = document.getElementById('beat');
+
+/* The corpus-wide statements that used to float over the drawing are
+   now written into the page as prose, where they can be read rather
+   than glanced at. All that is left over the canvas is the one line
+   that belongs to the paper currently on screen. */
+
+const fmt = n => n.toLocaleString('en-US');
+
+let ratioEarned = false;
+
+function showRatio() {
+  const before = PAPER.citations_before || 0;
+  const after  = PAPER.citations_after  || 0;
+  const share  = Math.round(100 * after / Math.max(1, after + before));
+  ratioEl.innerHTML = `${fmt(before)} before &nbsp;·&nbsp; <b>${share}% after</b>`;
+  ratioEarned = true;
+  applyFraming(anim.stageTarget);
+}
+
+function showBeat() {
+  beatEl.textContent =
+    `${PAPER.retracted_year} — the journal declares the result invalid`;
+  beatEl.classList.add('on');
+  clearTimeout(showBeat.t);
+  showBeat.t = setTimeout(() => beatEl.classList.remove('on'), 2600);
+}
+
+/* The before/after ratio belongs to the ONE paper in the first view.
+   Beside a count of papers on a map it would be answering a question
+   nothing is asking. */
+function applyFraming(stage) {
+  ratioEl.classList.toggle('on', ratioEarned && stage === 0);
+}
+
+function showVerdict() {}   // kept so the animation loop's call site
+                            // does not have to know the copy moved
+
+function clearFraming() {
+  clearTimeout(showBeat.t);
+  ratioEarned = false;
+  ratioEl.classList.remove('on');
+  beatEl.classList.remove('on');
+}
+
+document.getElementById('play').addEventListener('click', play);
+document.getElementById('reset').addEventListener('click', reset);
+
+function setPrompt(stage) {
+  swapText(promptEl, stage === 0
+    ? '\u2190 \u2192 another paper'
+    : 'one line per citation');
+}
+
+function setCaption(stage) {
+  setPrompt(stage);
+  // The caption's height varies with the title, and it sets the map's
+  // lower bound. Measured after the browser has laid the new text out.
+  requestAnimationFrame(() => measureClearance());
+  const title = document.getElementById('caption-title');
+  const meta  = document.getElementById('caption-meta');
+
+  if (stage === 2) {
+    swapText(title, TREE
+      ? `Every paper that cited a paper that cited it`
+      : 'The second ring');
+    swapText(meta, TREE
+      ? `${TREE.gen1_count.toLocaleString('en-US')} direct \u00b7 ` +
+        `${TREE.gen2_paths.toLocaleString('en-US')} at second hand`
+      : '');
+  } else if (stage === 1) {
+    swapText(title, LAND
+      ? `Half of all retractions sit in ${LAND.halfShare}% of the map`
+      : 'The map of biomedical research');
+    swapText(meta, LAND
+      ? `${LAND.sampledLabel} papers \u00b7 Nomic PubMed landscape`
+      : '');
+  } else {
+    swapText(title, PAPER.title);
+    swapText(meta, `Retracted ${PAPER.retracted_year}`);
+  }
+}
+
+/* --------------------------------------------------------------------
+   SCROLL DRIVES THE VIEW
+
+   Each step in the left column is a viewport tall and declares which
+   view it belongs to. An IntersectionObserver watches a thin band
+   across the middle of the screen: whichever step is crossing that
+   band is the one being read, and the drawing follows it.
+
+   The band is defined by a negative rootMargin on both sides, which
+   shrinks the observer's viewport to a horizontal sliver at the
+   centre. Without it, two full-height steps overlap the viewport at
+   once and the view flickers between them the whole way down.
+
+   The scroll position is the only driver. There is no separate
+   control for changing view, so the two can never disagree about
+   which one you are looking at.
+   -------------------------------------------------------------------- */
+
+const steps = [...document.querySelectorAll('.step')];
+
+function goToStage(stage) {
+  if (anim.stageTarget === stage) return;
+  anim.stageTarget = stage;
+  setCaption(stage);
+  applyFraming(stage);
+  wake();
+}
+
+const stepWatcher = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    steps.forEach(st => st.classList.toggle('active', st === e.target));
+    goToStage(Number(e.target.dataset.stage));
+
+    // Re-run the single paper whenever you scroll back up to it, so it
+    // is never sitting there already finished.
+    if (Number(e.target.dataset.stage) === 0 && !REDUCED_MOTION &&
+        anim.revealMs >= DURATION_MS) {
+      play();
+    }
+  }
+}, { rootMargin: '-45% 0px -45% 0px' });
+
+steps.forEach(st => stepWatcher.observe(st));
+
+/* --------------------------------------------------------------------
+   READING THE MAP
+
+   Hovering a point on the map answers the question the picture
+   raises but cannot state: what IS this region?
+
+   Two lookups, from the same cursor position:
+
+     the subject   nearest of the 94 labels Nomic places on the map
+     the rate      the grid cell the cursor is in, from the same
+                   cells the concentration figures are computed from
+
+   The subject lookup is weighted. There are 94 labels over only 38
+   distinct subjects, so a point often has a small label physically
+   nearer than the large region it actually belongs to. Dividing the
+   distance by the square root of the label's weight lets a big
+   region claim ground further out than a small one, which matches
+   how the map is actually organised. Square root rather than the
+   raw count, or the three or four largest labels would swallow
+   everything.
+   -------------------------------------------------------------------- */
+
+const probeEl     = document.getElementById('probe');
+const probeSubjEl = document.getElementById('probe-subject');
+const probeRateEl = document.getElementById('probe-rate');
+
+function hideProbe() {
+  probeEl.classList.remove('on');
+  HOVER_CELL = null;
+  HOVER_YEAR = null;
+}
+
+/* Place the readout beside the cursor and show it.
+
+   Flipping to the other side near an edge is the difference between
+   a readout and a thing that gets clipped exactly when you reach for
+   it, so both axes are checked against the panel. */
+function showProbe(px, py, subject, detail) {
+  probeSubjEl.textContent = subject;
+  probeRateEl.innerHTML   = detail;
+
+  const box = canvas.getBoundingClientRect();
+  const pad = 14;
+  const w = probeEl.offsetWidth  || 180;
+  const h = probeEl.offsetHeight || 46;
+
+  const left = (px + pad + w > box.width)  ? px - pad - w : px + pad;
+  const top  = (py + pad + h > box.height) ? py - pad - h : py + pad;
+
+  probeEl.style.left = `${Math.max(0, left)}px`;
+  probeEl.style.top  = `${Math.max(0, top)}px`;
+  probeEl.classList.add('on');
+}
+
+function readMapAt(clientX, clientY) {
+  /* The map only.
+
+     A subject name and a neighbourhood rate mean something over the
+     map, where position IS a subject. Over the second-ring view,
+     where the horizontal axis is years and the vertical is a count,
+     they answer a question the picture is not asking — the readout
+     was appearing over the bar chart and naming a field at random.
+
+     Gated on both sides, so it is live only while the map is the
+     view being shown. */
+  if (!LAND || VIEW.stage < 0.5 || VIEW.stage > 1.5) return hideProbe();
+
+  const box = canvas.getBoundingClientRect();
+  const g   = layout();
+  const t   = mapTransform(g);
+
+  // Screen back to map coordinates — the inverse of mapTransform.
+  const px = clientX - box.left;
+  const py = clientY - box.top;
+  const mx = (px - t.ox) / t.scale;
+  const my = (t.oy - py) / t.scale;
+
+  const e = LAND.extent;
+  if (mx < e.x[0] || mx > e.x[1] || my < e.y[0] || my > e.y[1]) return hideProbe();
+
+  // Nearest subject, weighted by how much map that subject covers.
+  let best = null, bestScore = Infinity;
+  for (const l of LAND.labels || []) {
+    const d = Math.hypot(l.x - mx, l.y - my) / Math.sqrt(l.n);
+    if (d < bestScore) { bestScore = d; best = l; }
+  }
+  if (!best) return hideProbe();
+
+  // The cell the cursor is in, from the same grid the headline
+  // concentration figures come from.
+  const G  = LAND.grid;
+  const gx = Math.min(G - 1, Math.floor((mx - e.x[0]) / (e.x[1] - e.x[0]) * G));
+  const gy = Math.min(G - 1, Math.floor((my - e.y[0]) / (e.y[1] - e.y[0]) * G));
+  const cell = (LAND.cells || []).find(c => c.gx === gx && c.gy === gy);
+
+  let detail;
+  if (cell) {
+    const pct  = 100 * cell.r / cell.n;
+    const mult = pct / (LAND.baselinePct || 0.0567);
+    detail = cell.r === 0
+      ? `${cell.n.toLocaleString('en-US')} papers here \u00b7 none retracted`
+      : `${cell.r} of ${cell.n.toLocaleString('en-US')} retracted \u00b7 ` +
+        `<b>${pct.toFixed(1)}%</b>, ${mult.toFixed(0)}\u00d7 average`;
+  } else {
+    detail = 'too few papers here to rate';
+  }
+
+  HOVER_CELL = cell ? { gx, gy } : null;
+  showProbe(px, py, best.t, detail);
+  draw();
+}
+
+
+/* ---- the single paper: one year's column ---------------------- */
+
+function readPaperAt(clientX, clientY) {
+  if (!PAPER) return hideProbe();
+
+  const box = canvas.getBoundingClientRect();
+  const px  = clientX - box.left;
+  const py  = clientY - box.top;
+
+  // Columns are centred on year + 0.5, so rounding down the fractional
+  // year lands on the column the cursor is over.
+  const year = Math.floor(yearOfX(px));
+  const n = PAPER.citations_by_year[String(year)];
+  if (!n) return hideProbe();
+
+  const after = year >= PAPER.retracted_year;
+  const total = (PAPER.citations_before || 0) + (PAPER.citations_after || 0);
+
+  HOVER_YEAR = year;
+  showProbe(px, py, String(year),
+    `${n.toLocaleString('en-US')} citation${n === 1 ? '' : 's'} \u00b7 ` +
+    (after ? '<b>after retraction</b>' : 'while valid') +
+    ` \u00b7 ${(100 * n / Math.max(1, total)).toFixed(1)}% of its life`);
+  draw();
+}
+
+
+/* ---- the two rings: one year, both generations ----------------- */
+
+function readRingsAt(clientX, clientY) {
+  if (!TREE) return hideProbe();
+
+  const box = canvas.getBoundingClientRect();
+  const px  = clientX - box.left;
+  const py  = clientY - box.top;
+
+  const year = Math.floor(yearOfX(px));
+  const g1 = TREE.g1[year] || 0;
+  const g2 = TREE.g2[year] || 0;
+  if (!g1 && !g2) return hideProbe();
+
+  const after = year >= TREE.retracted_year;
+
+  /* The ratio is the whole point of this view, so it is stated here
+     rather than left to be estimated from two bar heights. */
+  const ratio = g1 ? `<b>${Math.round(g2 / g1)}\u00d7</b>` : '\u2014';
+
+  HOVER_YEAR = year;
+  showProbe(px, py, String(year),
+    `${g1.toLocaleString('en-US')} direct \u00b7 ` +
+    `${g2.toLocaleString('en-US')} second-hand \u00b7 ${ratio}` +
+    (after ? '' : ' \u00b7 while valid'));
+  draw();
+}
+
+
+/* One entry point; the view decides what a cursor position means. */
+function probeAt(clientX, clientY) {
+  const st = VIEW.stage;
+  if (st < 0.5)      return readPaperAt(clientX, clientY);
+  if (st <= 1.5)     return readMapAt(clientX, clientY);
+  return readRingsAt(clientX, clientY);
+}
+
+let HOVER_CELL = null;
+let HOVER_YEAR = null;
+
+canvas.addEventListener('mousemove', e => probeAt(e.clientX, e.clientY));
+canvas.addEventListener('mouseleave', () => { hideProbe(); draw(); });
+
+
+/* Stepping between papers still belongs to the keyboard, and only
+   where there is one paper to step between. */
+window.addEventListener('keydown', e => {
+  if (anim.stageTarget !== 0) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); loadPaper(PAPER_AT + 1); }
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); loadPaper(PAPER_AT - 1); }
+});
+
+/* --------------------------------------------------------------------
+   15. WIRING IT UP
+
+   ResizeObserver rather than window.onresize: it fires when the CANVAS
+   changes size for any reason, including layout changes that never
+   resize the window. It also fires once on observe(), which is what
+   performs the very first paint.
+   -------------------------------------------------------------------- */
+
+new ResizeObserver(resize).observe(canvas);
+
+/* ...and size it once, explicitly, right now.
+
+   observe() is documented to deliver an initial callback, but whether
+   it does depends on the element having a layout box at the moment it
+   is called, and in the stacked phone layout the canvas does not have
+   one yet. The result was a canvas left at its default 300x150 with
+   W = 0, so nothing was ever drawn — on phones only. An explicit
+   first call removes the dependence on that timing entirely; the
+   observer then handles every later change.
+
+   Orientation changes on a phone resize the visual viewport without
+   always resizing the canvas element, and moving a window between
+   monitors changes devicePixelRatio without changing any CSS size, so
+   both are listened for too. */
+resize();
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 150));
+
+/* ctx.fillText draws with whatever font is available AT THAT MOMENT, and
+   a canvas does not reliably ASK for a webfont the way DOM text does:
+   the browser downloads faces it can see used in layout, and canvas
+   drawing is invisible to that. So the exact face the canvas draws with
+   is requested by hand here, and the frame is repainted once it lands. */
+if (document.fonts) {
+  document.fonts
+    .load(`400 ${LABEL_PX}px "Courier Prime"`)
+    .then(draw)
+    .catch(() => { /* offline: the fallback stack in :root still renders */ });
+}
+
+/* Load the data, expand it into lines, repaint. fetch() is asynchronous,
+   so the axis has already been on screen for a moment by the time this
+   resolves; the fan simply appears on the next paint.
+
+   This needs the page served over http. On a file:// URL the browser
+   treats every local file as a separate origin and blocks the request. */
+fetch('papers.json')
+  .then(res => {
+    if (!res.ok) throw new Error(`papers.json: HTTP ${res.status}`);
+    return res.json();
+  })
+  .then(papers => {
+    PAPERS = papers;
+
+    PAPER = papers.find(p => p.id === PAPER_ID) || papers[PAPER_INDEX];
+
+    // The fan is scaled to reach fanTop at this year.
+    LAST_YEAR = Math.max(...Object.keys(PAPER.citations_by_year).map(Number));
+
+    LINES = buildLines(PAPER);
+
+    // One row per paper, with the years pre-extracted. Done once here
+    // rather than per frame, because the field redraws sixty times a
+    // second and Object.keys allocates every time it is called.
+    fitYearRange();
+    loadPaper(papers.indexOf(PAPER));
+  })
+  .catch(err => console.error(err));
+
+/* The map loads separately and on its own schedule. It is a third of a
+   megabyte and the third view, so nothing on screen should wait for
+   it: if it is slow the first two views are already running, and if it
+   never arrives the toggle simply has one fewer stop. */
+/* The transmission tree for the featured paper. Turned into drawable
+   geometry once, here, rather than every frame: 65,736 branches is
+   too many to be laying out inside the draw loop.
+
+   The seeded generator is the same one the main fan uses, so this
+   view's scatter is as reproducible as everything else. */
+fetch('tree_hero.json')
+  .then(res => {
+    if (!res.ok) throw new Error(`tree_hero.json: HTTP ${res.status}`);
+    return res.json();
+  })
+  .then(tree => {
+    /* Both series, aggregated per year, once.
+
+       g1  how many papers cited this one directly, in each year
+       g2  how many citations those papers went on to receive
+
+       g2 counts transmission PATHS, not distinct papers: a work
+       citing three of the direct citers is counted three times,
+       because it inherited the claim by three routes. The
+       deduplicated figure is in contagion_hero.json and is the one
+       to quote; these are what the columns are made of. */
+    const g1 = {}, g2 = {};
+    let lastYear = tree.published_year;
+
+    for (const c of tree.children) {
+      g1[c.y] = (g1[c.y] || 0) + 1;
+      if (c.y > lastYear) lastYear = c.y;
+      for (const y in c.by) {
+        const yr = Number(y);
+        g2[yr] = (g2[yr] || 0) + c.by[y];
+        if (yr > lastYear) lastYear = yr;
+      }
+    }
+
+    const peak = Math.max(1, ...Object.values(g1), ...Object.values(g2));
+
+    TREE = { ...tree, g1, g2, peak, lastYear };
+    draw();
+  })
+  .catch(err => console.error(err));
+
+fetch('landscape.json')
+  .then(res => {
+    if (!res.ok) throw new Error(`landscape.json: HTTP ${res.status}`);
+    return res.json();
+  })
+  .then(land => {
+    LAND = land;
+
+    // Precomputed here rather than in the caption, so the arithmetic
+    // happens once instead of on every toggle.
+    const cells = [...land.cells].sort((a, b) => (b.r / b.n) - (a.r / a.n));
+    const total = cells.reduce((t, c) => t + c.r, 0);
+    let run = 0, k = 0;
+    for (const c of cells) { run += c.r; k++; if (run >= total / 2) break; }
+
+    const tn = cells.reduce((v, c) => v + c.n, 0);
+    LAND.baselinePct  = 100 * total / Math.max(1, tn);
+    LAND.halfShare    = (100 * k / cells.length).toFixed(1);
+    LAND.sampledLabel = land.sampled.toLocaleString('en-US');
+
+    draw();
+  })
+  .catch(err => console.error(err));
+</script>
+</body>
+</html>

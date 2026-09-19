@@ -1,0 +1,10 @@
+# Local tool settings and scratch, not part of the project.
+.DS_Store
+__pycache__/
+venv/
+
+# Downloaded map tiles. ~700MB, reproducible with fetch_landscape.py.
+landscape_cache/
+# Raw API pages, reproducible with fetch_contagion.py / fetch_tree.py.
+contagion/
+tree_cache/
