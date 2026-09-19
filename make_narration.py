@@ -25,11 +25,36 @@ import argparse
 import json
 import os
 import pathlib
+import ssl
 import sys
 import urllib.error
 import urllib.request
 
 API = "https://api.elevenlabs.io/v1"
+
+
+def ssl_context():
+    """A context that can actually verify ElevenLabs' certificate.
+
+    The python.org macOS builds ship without a CA bundle wired up —
+    ssl.get_default_verify_paths().cafile is None — so every HTTPS
+    request from them dies with CERTIFICATE_VERIFY_FAILED until you
+    run "Install Certificates.command". certifi is usually sitting
+    there already, so point at it when the default is empty.
+
+    Verification stays ON. Turning it off would make this work
+    everywhere and mean nothing, which is not a trade worth making
+    for an API key in a header.
+    """
+    if ssl.get_default_verify_paths().cafile:
+        return ssl.create_default_context()
+
+    try:
+        import certifi
+    except ImportError:
+        return ssl.create_default_context()
+
+    return ssl.create_default_context(cafile=certifi.where())
 
 # Free, from the ElevenLabs dashboard. Kept in the environment rather
 # than in this file, so the key never lands in the repository.
@@ -52,11 +77,18 @@ def call(path, payload=None, params=""):
         method="POST" if payload else "GET",
     )
     try:
-        with urllib.request.urlopen(req, timeout=300) as r:
+        with urllib.request.urlopen(req, timeout=300, context=ssl_context()) as r:
             return r.read()
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf8", "replace")[:600]
         raise SystemExit(f"\n  HTTP {e.code} from {path}\n  {body}\n")
+    except urllib.error.URLError as e:
+        if "CERTIFICATE_VERIFY" in str(e.reason):
+            raise SystemExit(
+                "\n  This Python cannot verify HTTPS certificates.\n"
+                "  Fix it once, for every script on this machine:\n"
+                "    open '/Applications/Python 3.13/Install Certificates.command'\n")
+        raise
 
 
 def listing(kind):
