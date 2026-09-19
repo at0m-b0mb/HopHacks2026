@@ -458,6 +458,31 @@ body {
   outline-offset: 5px;
 }
 
+/* Stepping through the three hundred papers used to be arrow keys and
+   nothing else, which on a phone means the other 299 may as well not
+   be in the file. These are the same control, reachable by thumb. */
+.paper-step {
+  font-size: 17px;
+  line-height: 1;
+  /* The glyph is about 10px wide; the thing you tap is 44px square,
+     which is the smallest target a thumb hits reliably. Padding alone
+     came out at 37px, so the box is set outright. The negative
+     vertical margin absorbs the extra height, so the row sits where
+     it did when it was only Play and Reset. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 !important;
+  margin: -12px 2px !important;
+}
+.paper-step::after { display: none; }   /* no underline under a chevron */
+
+/* They only do anything on the first view. Hidden rather than removed
+   so Play and Reset do not slide sideways as you scroll past. */
+.controls:not(.at-paper) .paper-step {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Below this the centred prompt runs into the caption in the corner.
    The prompt is an affordance, not content: the keys still work and
    the picture still reads, so it is the thing that goes. */
@@ -565,8 +590,12 @@ body {
       </div>
 
       <nav class="controls">
+        <button type="button" class="paper-step" id="prev-paper"
+                aria-label="Previous paper">&lsaquo;</button>
         <button type="button" id="play">Play</button>
         <button type="button" id="reset">Reset</button>
+        <button type="button" class="paper-step" id="next-paper"
+                aria-label="Next paper">&rsaquo;</button>
         <p class="prompt swap" id="prompt"></p>
       </nav>
     </div>
@@ -1979,6 +2008,7 @@ function draw() {
 const counterEl = document.getElementById('counter-value');
 const labelEl   = document.querySelector('.counter-label');
 const promptEl  = document.getElementById('prompt');
+const controlsEl = document.querySelector('.controls');
 
 const TEXT_SWAP_MS = 190;   // must match .swap's transition in the CSS
 
@@ -2118,6 +2148,7 @@ function loadPaper(index) {
 
   clearFraming();
   setCaption(anim.stageTarget);
+  setPrompt(anim.stageTarget);      // so "paper N of 300" follows along
 
   /* Replay the caption's entrance so a new paper's title ARRIVES
      rather than silently swapping underneath the old one. Reading
@@ -2363,9 +2394,14 @@ function clearFraming() {
 document.getElementById('play').addEventListener('click', play);
 document.getElementById('reset').addEventListener('click', reset);
 
+/* The prompt doubles as the position indicator: knowing this is paper
+   7 of 300 is what tells you the finding is not one cherry-picked
+   example, which is the first thing anyone asks. */
 function setPrompt(stage) {
+  controlsEl.classList.toggle('at-paper', stage === 0);
+
   swapText(promptEl, stage === 0
-    ? '\u2190 \u2192 another paper'
+    ? `paper ${PAPER_AT + 1} of ${PAPERS.length} \u00b7 \u2039 \u203a or \u2190 \u2192 for another`
     : 'one line per citation');
 }
 
@@ -2418,12 +2454,25 @@ function setCaption(stage) {
 
 const steps = [...document.querySelectorAll('.step')];
 
+/* A name per view, so each one has its own URL. Ordered by stage, so
+   the stage number indexes straight into it. */
+const VIEW_SLUG = ['paper', 'map', 'rings'];
+
 function goToStage(stage) {
   if (anim.stageTarget === stage) return;
   anim.stageTarget = stage;
   setCaption(stage);
   applyFraming(stage);
   wake();
+
+  /* Keep the address bar pointing at what is on screen, so any view
+     can be linked to directly. replaceState rather than assigning
+     location.hash: assigning it would make the browser jump to the
+     element AND push a history entry, so scrolling once would bury
+     the back button under three of them. */
+  if (VIEW_SLUG[stage]) {
+    history.replaceState(null, '', '#' + VIEW_SLUG[stage]);
+  }
 }
 
 const stepWatcher = new IntersectionObserver(entries => {
@@ -2442,6 +2491,42 @@ const stepWatcher = new IntersectionObserver(entries => {
 }, { rootMargin: '-45% 0px -45% 0px' });
 
 steps.forEach(st => stepWatcher.observe(st));
+
+/* Arriving on /#map or /#rings opens there instead of at the top.
+   Deferred by a turn so the sticky panel and the steps have their
+   real heights first; scrolling before layout settles lands in the
+   wrong place. setTimeout rather than rAF, which never fires if the
+   page was opened in a background tab. */
+{
+  const wanted = VIEW_SLUG.indexOf(location.hash.replace('#', ''));
+  const target = wanted < 0
+    ? null
+    : steps.find(st => Number(st.dataset.stage) === wanted);
+
+  if (target) {
+    /* Positioned by hand rather than with scrollIntoView, which does
+       nothing here: the steps sit alongside a sticky panel, and the
+       element it picks to scroll is not the document. Centring the
+       step puts it under the observer's band, which is what actually
+       selects the view. */
+    setTimeout(() => {
+      const box = target.getBoundingClientRect();
+      window.scrollTo({
+        top: box.top + window.scrollY + box.height / 2 - window.innerHeight / 2,
+        behavior: 'instant',
+      });
+
+      /* Select the view outright rather than waiting for the scroll
+         to be noticed. The observer reports a crossing, and a jump
+         straight to a position is not one: on a fresh load there is
+         no movement through the band for it to see, so the picture
+         would stay on view one while the address bar claimed
+         otherwise. Scrolling from here on is the observer's again. */
+      steps.forEach(st => st.classList.toggle('active', st === target));
+      goToStage(wanted);
+    }, 0);
+  }
+}
 
 /* --------------------------------------------------------------------
    READING THE MAP
@@ -2634,6 +2719,13 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') { e.preventDefault(); loadPaper(PAPER_AT + 1); }
   if (e.key === 'ArrowLeft')  { e.preventDefault(); loadPaper(PAPER_AT - 1); }
 });
+
+/* The same two moves, for anyone without a keyboard. loadPaper wraps
+   at both ends, so neither button is ever a dead end. */
+document.getElementById('prev-paper')
+  .addEventListener('click', () => loadPaper(PAPER_AT - 1));
+document.getElementById('next-paper')
+  .addEventListener('click', () => loadPaper(PAPER_AT + 1));
 
 /* --------------------------------------------------------------------
    15. WIRING IT UP
