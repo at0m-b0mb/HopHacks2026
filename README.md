@@ -102,14 +102,31 @@ than of a paper.
 
 ## ◆ What you are looking at
 
-The page is one continuous scroll. Three views, each answering the next
-question the previous one raises.
+The page is one continuous scroll. Four views, each answering the next
+question the previous one raises. Scrolling settles on a view rather
+than stopping halfway between two, so the picture is never cut in half
+by the edge of the screen.
 
-| | view | the question it answers | hover gives you |
-|:--:|---|---|---|
-| **1** | **One paper** | When did its citations arrive, relative to the retraction? | the year, the count, and which side of the line it fell on |
-| **2** | **The map** | Is this everywhere, or somewhere? | the neighbourhood's subject, papers sampled, and its retraction rate |
-| **3** | **Two rings** | Does the correction reach the people downstream? | the year, both rings' counts, and the ratio between them |
+| | view | the question it answers | hover gives you | link |
+|:--:|---|---|---|---|
+| **1** | **One paper** | When did its citations arrive, relative to the retraction? | the year, the count, and which side of the line it fell on | `#paper` |
+| **2** | **The map** | Is this everywhere, or somewhere? | the neighbourhood's subject, papers sampled, and its retraction rate | `#map` |
+| **3** | **Two rings** | Does the correction reach the people downstream? | the year, both rings' counts, and the ratio between them | `#rings` |
+| **4** | **Rate before vs after** | Once you divide by the time available, what did retraction actually do? | the paper, both of its rates, and the ratio | `#rates` |
+
+Each view answers to its own URL, so the writeup and the demo can point
+straight at the second ring instead of asking someone to scroll and
+hope.
+
+**The first view is not one cherry-picked paper.** The chevrons either
+side of Play step through all 300 — by tap or by arrow key — and the
+line beneath says which one you are on. Every paper in `papers.json`
+draws the same way.
+
+**It can also read itself aloud.** One recording per view, so the audio
+follows the reader down the page rather than running on its own clock.
+Off by default; the Listen control only appears when the audio files
+are present.
 
 <br>
 
@@ -275,6 +292,20 @@ A few decisions worth being able to defend:
   2024 flies back over the valid years to reach the publication dot; painting
   it red along its whole length would colour a period when that citation had
   not happened yet. The banner above is drawn the same way.
+- **Every landing is punched out of the arcs beneath it.** A dot drawn in
+  its own trail's colour disappears into a thousand crossing arcs. The
+  dots are the data; the arcs are only how it travelled, so the dots win.
+- **The rate view is drawn square, with one scale on both axes.** The
+  whole reading is above or below the diagonal, and a diagonal that is
+  not at 45° quietly moves papers across it.
+- **A step's copy has to fit the screen.** Text running past the fold
+  means reading with the picture gone, which is the one thing this
+  cannot afford: the words and the thing they describe have to be
+  visible together. On a short screen the type steps down rather than
+  the copy being cut.
+- **Snapping is `proximity`, not `mandatory`.** Mandatory refuses to
+  leave a snap point until you pass its midpoint, which on a short
+  screen can hold a reader against a paragraph they cannot finish.
 
 ### The palette
 

@@ -42,6 +42,36 @@
   --data:    "Courier Prime", ui-monospace, "Courier New", monospace;
 }
 
+/* THE MAGNET.
+
+   Scrolling settles on a view rather than stopping halfway between
+   two of them, so the picture is never cut in half by the edge of
+   the screen.
+
+   PROXIMITY, not mandatory. Mandatory refuses to leave a snap point
+   until you have scrolled past its midpoint, which on a short screen
+   would make the bottom of a long step unreachable - the reader
+   would be held against a paragraph they cannot finish. Proximity
+   pulls you in when you stop nearby and otherwise stays out of the
+   way. */
+html {
+  scroll-snap-type: y proximity;
+}
+
+.opening,
+.step,
+.method {
+  scroll-snap-align: center;
+  scroll-snap-stop: normal;
+}
+
+/* Someone who asked for less motion gets none of this: a page that
+   moves on its own after you stop scrolling is exactly what that
+   setting is about. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-snap-type: none; }
+}
+
 @keyframes riseIn {
   from { opacity: 0; transform: translateY(26px); }
   to   { opacity: 1; transform: none; }
@@ -178,12 +208,17 @@ body {
 .steps  { grid-column: 1; grid-row: 1; }
 .visual { grid-column: 2; grid-row: 1; }
 
+/* A step holds one view's worth of explanation, and it has to fit
+   the screen. Text running past the fold means reading with the
+   picture gone, which is the one thing a piece like this cannot
+   afford: the words and the thing they describe have to be visible
+   at the same time. The padding gives way before the type does. */
 .step {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 8vh 0;
+  padding: clamp(18px, 5vh, 56px) 0;
   opacity: 0.25;
   transition: opacity 600ms var(--ease-rise);
 }
@@ -201,13 +236,27 @@ body {
   font-weight: 400;
 }
 
-.step p { margin: 0 0 1em; line-height: 1.6; font-size: 16px; }
+.step p { margin: 0 0 0.85em; line-height: 1.55; font-size: 16px; }
 .step b { font-weight: 500; color: var(--stamp); }
 .step em { font-style: italic; }
 
 .step .learn {
   border-left: 1px solid var(--rule);
   padding-left: 1em;
+}
+
+/* Laptops are wide and short. Below this the longest step will not
+   fit at the full size, so the type steps down rather than the copy
+   being cut - a shorter screen should mean smaller words, not fewer
+   of them. */
+@media (max-height: 1000px) {
+  .step p  { font-size: 15px; line-height: 1.5; margin-bottom: 0.7em; }
+  .step h2 { font-size: clamp(24px, 2.8vw, 34px); margin-bottom: 0.5em; }
+}
+
+@media (max-height: 720px) {
+  .step p  { font-size: 14px; line-height: 1.45; margin-bottom: 0.6em; }
+  .step h2 { font-size: clamp(21px, 2.4vw, 28px); }
 }
 
 .step .caveat {
