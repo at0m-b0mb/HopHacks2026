@@ -148,7 +148,7 @@ def main():
     for seg in segments:
         out = OUT_DIR / (seg.stem + ".mp3")
 
-        if out.exists() and not args.force:
+        if out.exists() and out.stat().st_size > 0 and not args.force:
             print(f"  {out}  exists, skipping", file=sys.stderr)
             continue
 
@@ -159,7 +159,13 @@ def main():
         audio = call(f"text-to-speech/{args.voice}",
                      payload={"text": text, "model_id": args.model},
                      params=f"?output_format={args.format}")
-        out.write_bytes(audio)
+
+        # Written aside and moved into place, so an interrupted run
+        # cannot leave a truncated mp3 that the skip-if-exists check
+        # above then treats as finished on every later run.
+        tmp = out.with_suffix(".mp3.part")
+        tmp.write_bytes(audio)
+        os.replace(tmp, out)
         print(f"    wrote {out}  ({len(audio)/1024:.0f} KB)", file=sys.stderr)
 
     print(f"\n  {total:,} characters rendered", file=sys.stderr)

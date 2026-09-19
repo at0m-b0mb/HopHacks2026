@@ -733,7 +733,8 @@ body {
           the dark slivers along the bottom.</p>
         <p class="learn">What it shows — direct citation
           <b>falls</b> after retraction, from 307 a year to 12. Second-hand
-          citation <b>keeps climbing</b>, from 2,926 to 9,318. The year
+          citation <b>keeps climbing</b>, from 2,926 in 2018 to 9,318 by 2024.
+          The year
           before retraction there were 10 second-hand citations for every
           direct one. By 2026 there are <b>396</b>.</p>
         <p class="learn">The correction reaches the first ring. It never
@@ -899,6 +900,7 @@ const MAX_FRAME_MS       = 100;  // biggest step the clock will take
 const AXIS_IN_MS         = 900;  // the rule drawing itself across
 const MAP_IN_MS          = 1400; // the retracted papers landing on the map
 const MAP_STAGGER        = 0.55;
+const RINGS_IN_MS        = 1100; // the two ring series growing in
 const RATES_IN_MS        = 1200; // the 205 papers arriving on the scatter
 const RATES_STAGGER      = 0.5;
 const RATES_DOT          = 3.0;  // radius; bigger than a citation dot,
@@ -1150,6 +1152,7 @@ const VIEW = {
   dim: 1,
   axisIn: 1,      // 0..1, the time axis drawing itself in on load
   mapReveal: 1,   // 0..1, the retracted papers landing on the map
+  ringsReveal: 1, // 0..1, the two ring series growing in
   ratesReveal: 1, // 0..1, the 205 papers landing on the scatter
 };
 
@@ -1467,7 +1470,11 @@ function drawFan(g) {
       const dx   = endX - dotX;
       if (dx <= 0) continue;
 
-      const landY = oy - line.k * step;
+      /* k+1, not k. buildLines numbers a year's citations 0..n-1, so
+         multiplying by k left every column one step short of the
+         height the hover bracket draws for it, and a year with a
+         single citation put its dot exactly on the axis. */
+      const landY = oy - (line.k + 1) * step;
       const tipX  = dotX + dx * p;
       const tipY  = oy + (landY - oy) * p;
       const apexY = landY - (oy - landY) * ARC_LIFT - ARC_MIN_LIFT;
@@ -1515,7 +1522,7 @@ function drawFan(g) {
       const endX = xOfYear(line.t);
       if (endX - dotX <= 0) continue;
 
-      fn(endX, oy - line.k * step, line.year >= PAPER.retracted_year);
+      fn(endX, oy - (line.k + 1) * step, line.year >= PAPER.retracted_year);
     }
   }
 
@@ -1852,11 +1859,22 @@ function drawRings(g) {
   const wide  = yearW * 0.52;   // second-hand, behind
   const slim  = yearW * 0.26;   // direct, in front
 
-  /* SECOND HAND, behind and paler: every paper that cited a paper
-     that cited this one, in the year it did so. */
+  /* The rings grow in on THEIR OWN clock.
+
+     They used to be clipped against VIEW.frontier, which is view 0's
+     reveal front and stops at the SELECTED PAPER's last cited year.
+     Pick a paper that stopped being cited in 2021 and the rings
+     silently lost every column after it — 47% of the second-hand
+     total — while the counter underneath still reported all of it.
+     After Reset, which parks the frontier at -Infinity, they vanished
+     entirely. The tree is the same hero tree whatever paper is on the
+     stand, so its reveal cannot belong to that paper. */
+  const ringSpan = Math.max(1, TREE.lastYear - TREE.firstYear);
+  const ringFront = TREE.firstYear + VIEW.ringsReveal * ringSpan;
+
   for (const y in TREE.g2) {
     const year = Number(y);
-    if (year > VIEW.frontier) continue;
+    if (year > ringFront) continue;
 
     const n = TREE.g2[y];
     const after = year >= TREE.retracted_year;
@@ -1874,7 +1892,7 @@ function drawRings(g) {
      out. */
   for (const y in TREE.g1) {
     const year = Number(y);
-    if (year > VIEW.frontier) continue;
+    if (year > ringFront) continue;
 
     const n = TREE.g1[y];
     const after = year >= TREE.retracted_year;
@@ -1998,7 +2016,14 @@ function drawRates(g) {
   /* One gridline per power of ten, labelled, so the log scale is
      legible rather than merely declared in the caption. */
   ctx.lineWidth = 1;
-  ctx.font = `10px ${DATA_FONT}`;
+
+  /* The type has to shrink with the plot. At a fixed 10px the axis
+     titles are about 210px long, which on a phone is nearly three
+     times the width of the square they label — they ran across the
+     counter and out of the canvas. */
+  const labelPx = Math.max(7, Math.min(10, side / 24));
+  const tiny    = side < 190;
+  ctx.font = `${labelPx}px ${DATA_FONT}`;
 
   for (let d = RATE_LO; d <= RATE_HI; d *= 10) {
     const gx = crisp(sx(d)), gy = crisp(sy(d));
@@ -2063,7 +2088,8 @@ function drawRates(g) {
 
   ctx.fillStyle = COLOR.faded;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText('citations per year while valid', (x0 + x1) / 2, y1 + 24);
+  ctx.fillText(tiny ? 'per year while valid' : 'citations per year while valid',
+               (x0 + x1) / 2, y1 + labelPx * 2.2);
 
   /* The y label reads bottom-to-top, which needs the canvas rotated:
      there is no vertical text. Same save/restore discipline as the
@@ -2072,7 +2098,7 @@ function drawRates(g) {
   ctx.translate(x0 - 30, (y0 + y1) / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillText('citations per year after retraction', 0, 0);
+  ctx.fillText(tiny ? 'per year after' : 'citations per year after retraction', 0, 0);
   ctx.restore();
 
   /* One dot per paper, staggered in by index so they arrive as a
@@ -2444,6 +2470,7 @@ const anim = {
   holdUntil: 0,     // wall-clock time the beat ends
   axisMs:    0,     // clocks for the intros below
   mapMs:     0,
+  ringsMs:   0,
   ratesMs:   0,
   struckAt: null,   // wall-clock time the stamp landed
   frameId:  0,
@@ -2518,6 +2545,8 @@ function loadPaper(index) {
   LAST_YEAR = Math.max(...Object.keys(PAPER.citations_by_year).map(Number));
   LINES = buildLines(PAPER);
   lastCount = -1;              // force the counter to repaint
+  hideProbe();                 // a reading of the OLD paper must not
+                               // sit over the new one
 
   clearFraming();
   setCaption(anim.stageTarget);
@@ -2588,6 +2617,11 @@ function frame(now) {
   anim.mapMs = Math.max(0, Math.min(MAP_IN_MS, anim.mapMs + (toMap ? dt : -dt * 2)));
   VIEW.mapReveal = easeOutCubic(anim.mapMs / MAP_IN_MS);
 
+  const toRings = anim.stageTarget === 2;
+  anim.ringsMs = Math.max(0,
+    Math.min(RINGS_IN_MS, anim.ringsMs + (toRings ? dt : -dt * 2)));
+  VIEW.ringsReveal = easeOutCubic(anim.ringsMs / RINGS_IN_MS);
+
   // The scatter fills the same way, on its own clock.
   const toRates = anim.stageTarget === 3;
   anim.ratesMs = Math.max(0,
@@ -2605,7 +2639,7 @@ function frame(now) {
   // The one moment the whole thing is built around. The first time the
   // front reaches the retraction year, strike the stamp and freeze the
   // reveal so the two events do not compete for attention.
-  if (anim.struckAt === null && VIEW.frontier >= PAPER.retracted_year) {
+  if (PAPER && anim.struckAt === null && VIEW.frontier >= PAPER.retracted_year) {
     anim.struckAt = now;
 
     // Frozen for the stamp's own movement AND a full second of
@@ -2640,6 +2674,7 @@ function frame(now) {
   // Stopping on the reveal alone would freeze a half-finished fade.
   const introsDone = anim.axisMs >= AXIS_IN_MS &&
                      (toMap   ? anim.mapMs   >= MAP_IN_MS   : anim.mapMs   <= 0) &&
+                     (toRings ? anim.ringsMs >= RINGS_IN_MS : anim.ringsMs <= 0) &&
                      (toRates ? anim.ratesMs >= RATES_IN_MS : anim.ratesMs <= 0);
 
   if (p >= 1 && VIEW.stage === anim.stageTarget && introsDone) {
@@ -2806,9 +2841,14 @@ function setCaption(stage) {
     swapText(title, TREE
       ? `Every paper that cited a paper that cited it`
       : 'The second ring');
+    /* "paths", not papers. A work reached by three different routes
+       is three transmission paths and one paper, and the deduplicated
+       count of works is a different, smaller number (57,765, in
+       contagion_hero.json). The columns are paths, so the caption
+       says paths. */
     swapText(meta, TREE
       ? `${TREE.gen1_count.toLocaleString('en-US')} direct \u00b7 ` +
-        `${TREE.gen2_paths.toLocaleString('en-US')} at second hand`
+        `${TREE.gen2_paths.toLocaleString('en-US')} second-hand paths`
       : '');
   } else if (stage === 1) {
     swapText(title, LAND
@@ -2866,10 +2906,27 @@ function goToStage(stage) {
   narrate();
 }
 
+/* Which steps are currently crossing the band. Tracked as a set
+   rather than reacting only to the positive edge: skipping the
+   non-intersecting entries meant `active` was only ever handed from
+   one step to another and never cleared, so scrolling back up to the
+   opening left the last step marked active — and the narration, which
+   reads the opening as "no step is active", could never return to
+   it. */
+const visibleSteps = new Set();
+
 const stepWatcher = new IntersectionObserver(entries => {
   for (const e of entries) {
+    if (e.isIntersecting) visibleSteps.add(e.target);
+    else visibleSteps.delete(e.target);
+  }
+
+  const current = steps.find(st => visibleSteps.has(st));
+  steps.forEach(st => st.classList.toggle('active', st === current));
+  if (current) narrate();
+
+  for (const e of entries) {
     if (!e.isIntersecting) continue;
-    steps.forEach(st => st.classList.toggle('active', st === e.target));
     goToStage(Number(e.target.dataset.stage));
 
     // Re-run the single paper whenever you scroll back up to it, so it
@@ -2945,10 +3002,17 @@ const probeEl     = document.getElementById('probe');
 const probeSubjEl = document.getElementById('probe-subject');
 const probeRateEl = document.getElementById('probe-rate');
 
+/* Repaints as well as hiding. The bracket, the outlined cell and the
+   scatter's selection ring are drawn ON THE CANVAS, so clearing the
+   variables is not enough — the bail-out paths returned hideProbe()
+   without a redraw and left the last frame's marks on a canvas whose
+   animation loop had already stopped. */
 function hideProbe() {
   probeEl.classList.remove('on');
   HOVER_CELL = null;
   HOVER_YEAR = null;
+  HOVER_RATE = null;
+  if (typeof draw === 'function' && PAPER) draw();
 }
 
 /* Place the readout beside the cursor and show it.
@@ -3199,12 +3263,21 @@ function narrate() {
   if (!track) return;
 
   track.currentTime = 0;
-  track.play().then(syncListen).catch(() => {
-    /* Refused — almost always the autoplay policy, before the reader
-       has touched anything. Forget the segment we picked, so the
-       first gesture is a real change and starts it rather than being
-       swallowed as "already playing that one". */
-    narrationAt = -1;
+
+  /* Which segment THIS call is starting. A play() promise can settle
+     long after another call has moved on, and a late rejection that
+     blindly cleared the segment would erase a start that had already
+     succeeded — leaving a track playing while the code believed
+     nothing was. */
+  const mine = i;
+
+  track.play().then(syncListen).catch(err => {
+    /* Only the autoplay policy earns a retry. Clearing the segment on
+       any error meant a genuinely missing file was re-attempted on
+       every scroll event for the length of the page. */
+    if (err && err.name === 'NotAllowedError' && narrationAt === mine) {
+      narrationAt = -1;
+    }
     syncListen();
   });
 }
@@ -3213,7 +3286,14 @@ function narrate() {
    Left attached rather than once-only: the very first tap might land
    while the audio is still arriving, and narrate() is a no-op once
    something is playing, so retrying costs nothing. */
-const armNarration = () => narrate();
+const armNarration = e => {
+  /* Not when the gesture IS the button. pointerdown runs before
+     click, so arming here would start playback and leave the click
+     handler toggling against audible-and-playing — the first press of
+     Listen would stop what it had just started. */
+  if (e && e.target === listenEl) return;
+  narrate();
+};
 window.addEventListener('pointerdown', armNarration, { passive: true });
 window.addEventListener('keydown', armNarration);
 
@@ -3424,7 +3504,10 @@ fetch('tree_hero.json')
 
     const peak = Math.max(1, ...Object.values(g1), ...Object.values(g2));
 
-    TREE = { ...tree, g1, g2, peak, lastYear };
+    const firstYear = Math.min(...Object.keys(g1).map(Number),
+                               ...Object.keys(g2).map(Number));
+
+    TREE = { ...tree, g1, g2, peak, lastYear, firstYear };
     draw();
   })
   .catch(err => console.error(err));
@@ -3439,7 +3522,14 @@ fetch('landscape.json')
 
     // Precomputed here rather than in the caption, so the arithmetic
     // happens once instead of on every view change.
-    const cells = [...land.cells].sort((a, b) => (b.r / b.n) - (a.r / a.n));
+    /* Sorted by COUNT, not by rate. The sentence this feeds — "half of
+       all retractions sit in X% of the map" — is about the SMALLEST SET
+       of neighbourhoods that together hold half of them, and the
+       smallest set is built from the ones holding the most. Sorting by
+       rate takes tiny high-rate cells first and needs 131 of them
+       instead of 109, which printed 5.2% under a paragraph saying
+       4.3%. */
+    const cells = [...land.cells].sort((a, b) => b.r - a.r);
     const total = cells.reduce((t, c) => t + c.r, 0);
     let run = 0, k = 0;
     for (const c of cells) { run += c.r; k++; if (run >= total / 2) break; }
