@@ -91,6 +91,39 @@ html {
   html { scroll-snap-type: none; }
 }
 
+/* THE LISTEN BUTTON ASKS TO BE PRESSED.
+
+   The page wants to narrate from the moment it loads, but a browser
+   will not start audio until the reader has clicked, tapped or typed
+   something. Scrolling does not count, so a reader can go all the way
+   down the page in silence without ever learning there was a voice.
+
+   So the control pulses while it is waiting: on from load, nothing
+   audible yet. It stops the instant sound is playing, and it does not
+   restart if the reader presses Stop, because at that point they have
+   said no and a control that keeps flashing is nagging. */
+@keyframes listenWaiting {
+  0%, 100% { color: var(--ink-soft); }
+  50%      { color: var(--stamp); }
+}
+
+#listen.waiting {
+  animation: listenWaiting 2.6s ease-in-out infinite;
+}
+
+/* A quiet dot, so it reads as "there is something here" even to
+   someone who does not notice the colour move. */
+#listen.waiting::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -7px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--stamp);
+}
+
 @keyframes riseIn {
   from { opacity: 0; transform: translateY(26px); }
   to   { opacity: 1; transform: none; }
@@ -115,6 +148,9 @@ html {
   .counter-ratio, .beat                        { transition: none; }
   .swap                                        { transition: none; }
   .controls button:hover::after                { animation: none; }
+  /* The pulse is a prompt, not information. The dot stays, so the
+     control is still marked as waiting without anything moving. */
+  #listen.waiting                              { animation: none; color: var(--stamp); }
 }
 
 * { box-sizing: border-box; }
@@ -554,6 +590,18 @@ body {
 /* Stepping through the three hundred papers used to be arrow keys and
    nothing else, which on a phone means the other 299 may as well not
    be in the file. These are the same control, reachable by thumb. */
+/* The three word buttons were 35x14 of actual hit area, which is a
+   third of what a thumb reliably lands on. The chevrons were fixed
+   when they were added; these were not, and Listen is now the
+   control the page asks people to press. The padding grows the
+   target and the negative margin absorbs it, so the row sits
+   exactly where it did. */
+#play, #reset, #listen {
+  min-height: 44px;
+  padding: 15px 10px !important;
+  margin: -15px 5px !important;
+}
+
 .paper-step {
   font-size: 17px;
   line-height: 1;
@@ -3343,8 +3391,15 @@ function narrationSection() {
 
 function syncListen() {
   const playing = narrationTracks.some(a => !a.paused);
+
   listenEl.textContent = playing ? 'Stop' : 'Listen';
   listenEl.setAttribute('aria-pressed', String(playing));
+
+  /* Waiting means: there is audio, we intend to play it, and nothing
+     is coming out yet. That is exactly the state the autoplay policy
+     leaves us in, and the only state where a nudge is fair. */
+  listenEl.classList.toggle(
+    'waiting', narrationOn && !playing && narrationTracks.length > 0);
 }
 
 function narrate() {
@@ -3391,8 +3446,15 @@ const armNarration = e => {
   if (e && e.target === listenEl) return;
   narrate();
 };
+/* Every gesture a browser will accept as permission. On a phone the
+   first thing a reader does is swipe, and a swipe begins with a
+   pointerdown, so on touch the narration really does start as they
+   scroll into the first view. A mouse wheel grants nothing, which is
+   why the button pulses on the desktop until it is pressed. */
 window.addEventListener('pointerdown', armNarration, { passive: true });
-window.addEventListener('keydown', armNarration);
+window.addEventListener('touchstart',  armNarration, { passive: true });
+window.addEventListener('keydown',     armNarration);
+window.addEventListener('click',       armNarration);
 
 listenEl.addEventListener('click', () => {
   const playing = narrationTracks.some(a => !a.paused);
