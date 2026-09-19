@@ -648,6 +648,28 @@ body {
           reaches the second.</p>
       </article>
 
+      <article class="step" data-stage="3">
+        <h2>The number we defend</h2>
+        <p>63% of citations arriving after retraction is the headline, and
+          it is partly an artefact. The median paper here spent two years
+          valid and four years retracted. It simply had longer.</p>
+        <p>So divide by the time available. Every dot is one paper:
+          citations per year before retraction across, citations per year
+          after it up. The diagonal is the line where nothing changed.</p>
+        <p class="learn">What it shows — most papers fall
+          <b>below</b> the line, so retraction does slow them. The median
+          lands at <b>0.62&times;</b>: about a third off the rate. But
+          <b>63 of 205</b> sit above it, cited <b>faster</b> dead than
+          alive.</p>
+        <p class="learn">Retraction slows the spread by about a third. It
+          does not stop it.</p>
+        <p class="note">205 papers, not 300. A rate before retraction needs
+          at least one year of being valid, and 87 of these were retracted
+          in the same year they were published; 8 more were never cited
+          before. Both axes are logarithmic, so each step is ten times the
+          one before.</p>
+      </article>
+
     </div>
 
   </section>
@@ -784,7 +806,11 @@ const MAX_FRAME_MS       = 100;  // biggest step the clock will take
 
 const AXIS_IN_MS         = 900;  // the rule drawing itself across
 const MAP_IN_MS          = 1400; // the retracted papers landing on the map
-const MAP_STAGGER        = 0.55; // how much of that is spent staggering them
+const MAP_STAGGER        = 0.55;
+const RATES_IN_MS        = 1200; // the 205 papers arriving on the scatter
+const RATES_STAGGER      = 0.5;
+const RATES_DOT          = 3.0;  // radius; bigger than a citation dot,
+                                 // because here one dot is a whole paper // how much of that is spent staggering them
 
 const MAP_DOT             = 1.3;  // background paper, in px
 const MAP_FIELD_ALPHA     = 0.30;
@@ -1032,6 +1058,7 @@ const VIEW = {
   dim: 1,
   axisIn: 1,      // 0..1, the time axis drawing itself in on load
   mapReveal: 1,   // 0..1, the retracted papers landing on the map
+  ratesReveal: 1, // 0..1, the 205 papers landing on the scatter
 };
 
 /* Someone who asked their OS for less motion should not be handed a
@@ -1818,6 +1845,194 @@ function drawRings(g) {
 
 let LAND = null;
 
+/* --------------------------------------------------------------------
+   THE RATE SCATTER
+
+   Both axes are citations per year, so the plot is drawn SQUARE and
+   both axes share one scale. That is not a cosmetic choice: the whole
+   reading of this picture is "above or below the diagonal", and a
+   diagonal that is not at 45 degrees quietly moves papers across it.
+
+   Logarithmic, because the rates run from 1 a year to nearly 2,000.
+   Linear, the bottom two decades — which is most of the corpus —
+   would collapse into the corner.
+   -------------------------------------------------------------------- */
+
+const RATE_LO = 1;       // citations per year, the bottom of both axes
+const RATE_HI = 2000;
+
+// Where the last frame put the plot, so the hover can invert it
+// without recomputing a layout that might have changed underneath.
+let RATES_PLOT = null;
+
+function drawRates(g) {
+  if (!RATES.length) return;
+
+  /* This view has no stamp, so it takes the same full height the map
+     does rather than starting below the band reserved for one. On a
+     phone that band was most of the canvas: the plot came out 112px
+     square, and two hundred dots in 112px is a smudge.
+
+     Margins are for the plot's own furniture — the decade labels down
+     the left, the ticks and axis title underneath. */
+  const padL = 46, padR = 14, padB = 34;
+  const top    = g.fieldTop;
+  const bottom = g.mapBottom - padB;
+
+  const availW = W - padL - padR;
+  const availH = bottom - top;
+
+  // Square, so the diagonal is a true 45 degrees.
+  const side = Math.max(60, Math.min(availW, availH));
+  const x0 = padL + (availW - side) / 2, x1 = x0 + side;
+  const y1 = top + (availH + side) / 2,  y0 = y1 - side;
+
+  /* The dot shrinks with the plot. At three pixels on a 112px square
+     the scatter is solid ink and the shape of the data disappears. */
+  const dotR = Math.max(1.5, Math.min(RATES_DOT, side / 140));
+
+  const span = Math.log10(RATE_HI / RATE_LO);
+  const sx = v => x0 + (Math.log10(v / RATE_LO) / span) * side;
+  const sy = v => y1 - (Math.log10(v / RATE_LO) / span) * side;
+
+  RATES_PLOT = { x0, x1, y0, y1, side, sx, sy, dotR };
+
+  /* One gridline per power of ten, labelled, so the log scale is
+     legible rather than merely declared in the caption. */
+  ctx.lineWidth = 1;
+  ctx.font = `10px ${DATA_FONT}`;
+
+  for (let d = RATE_LO; d <= RATE_HI; d *= 10) {
+    const gx = crisp(sx(d)), gy = crisp(sy(d));
+
+    ctx.strokeStyle = COLOR.rule;
+    setAlpha(0.65);
+    ctx.beginPath(); ctx.moveTo(gx, y0); ctx.lineTo(gx, y1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x1, gy); ctx.stroke();
+
+    ctx.fillStyle = COLOR.faded;
+    setAlpha(0.95);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(d, gx, y1 + 7);
+    ctx.textAlign = 'right';  ctx.textBaseline = 'middle';
+    ctx.fillText(d, x0 - 7, gy);
+  }
+
+  /* The line where nothing changed. Dashed, because it is a reference
+     and not a measurement. */
+  setAlpha(0.85);
+  ctx.strokeStyle = COLOR.inkSoft;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(x0, y1); ctx.lineTo(x1, y0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  /* Where the typical paper actually sits. On log axes, multiplying
+     every after-rate by the same number is a shift straight down, so
+     the median is a line PARALLEL to the diagonal, offset by
+     log10(0.62) of the plot's height. Without it the headline number
+     is only in the caption, and the one figure we ask people to
+     believe is the one the picture does not show. */
+  const drop = (Math.log10(1 / RATES_MEDIAN) / span) * side;
+
+  /* It has to ENTER THROUGH THE BOTTOM EDGE, not share the diagonal's
+     corner. At the left of the plot a 0.62x paper would sit at 0.62
+     citations a year, which is below the axis, so the line only comes
+     into view once 0.62 times the before-rate reaches 1 — at a
+     before-rate of 1/0.62. Starting it at the corner instead made it
+     converge with the diagonal and read as "no difference at the
+     low end", which is not what the data says. */
+  setAlpha(0.6);
+  ctx.strokeStyle = COLOR.stamp;
+  ctx.beginPath();
+  ctx.moveTo(sx(RATE_LO / RATES_MEDIAN), y1);
+  ctx.lineTo(x1, y0 + drop);
+  ctx.stroke();
+
+  // Below its own line, so it does not sit on top of the highest dot.
+  ctx.fillStyle = COLOR.stamp;
+  setAlpha(0.95);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  ctx.fillText(`median ${RATES_MEDIAN.toFixed(2)}\u00d7`, x1 - 6, y0 + drop + 9);
+
+  ctx.fillStyle = COLOR.inkSoft;
+  setAlpha(0.9);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('cited faster after', x0 + 8, y0 + 14);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+  ctx.fillText('slowed by the retraction', x1 - 8, y1 - 16);
+
+  ctx.fillStyle = COLOR.faded;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('citations per year while valid', (x0 + x1) / 2, y1 + 24);
+
+  /* The y label reads bottom-to-top, which needs the canvas rotated:
+     there is no vertical text. Same save/restore discipline as the
+     stamp — without the restore every later mark would be sideways. */
+  ctx.save();
+  ctx.translate(x0 - 30, (y0 + y1) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('citations per year after retraction', 0, 0);
+  ctx.restore();
+
+  /* One dot per paper, staggered in by index so they arrive as a
+     scatter filling rather than a block appearing. Halo first for all
+     of them, then the dots, so no dot is knocked out by a neighbour
+     landing after it — the same order the fan's landings use. */
+  const n = RATES.length;
+  const localAt = i => clamp01(
+    (VIEW.ratesReveal - (i / n) * RATES_STAGGER) / (1 - RATES_STAGGER));
+
+  ctx.fillStyle = COLOR.paper;
+  for (let i = 0; i < n; i++) {
+    const local = localAt(i);
+    if (local <= 0) continue;
+    const r = RATES[i], eased = easeOutCubic(local);
+    setAlpha(0.7 * eased);
+    ctx.beginPath();
+    ctx.arc(sx(r.before), sy(r.after), dotR * eased + 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* Red is the pathology again, as everywhere else on the page: here
+     it is the papers the retraction did not slow at all. */
+  for (const faster of [false, true]) {
+    ctx.fillStyle = faster ? COLOR.stamp : COLOR.inkSoft;
+
+    for (let i = 0; i < n; i++) {
+      const r = RATES[i];
+      if ((r.ratio > 1) !== faster) continue;
+
+      const local = localAt(i);
+      if (local <= 0) continue;
+
+      const eased = easeOutCubic(local);
+      setAlpha((faster ? 0.9 : 0.62) * eased);
+      ctx.beginPath();
+      ctx.arc(sx(r.before), sy(r.after), dotR * eased, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* A ring around the one being read, so the tooltip and the dot
+     cannot be about different papers. Drawn, not filled, for the
+     same reason the year bracket is: covering the mark would hide
+     the thing being pointed at. */
+  if (HOVER_RATE) {
+    setAlpha(0.95);
+    ctx.strokeStyle = COLOR.ink;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(sx(HOVER_RATE.before), sy(HOVER_RATE.after),
+            dotR + 4, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  setAlpha(1);
+}
+
 function mapTransform(g) {
   /* Fit the map into the drawing area while PRESERVING ASPECT RATIO.
      Fitting each axis independently would stretch the embedding, and
@@ -1984,6 +2199,12 @@ function draw() {
     drawRings(g);
   }
 
+  const rates = opacity(3);
+  if (rates > 0) {
+    FADE = rates;
+    drawRates(g);
+  }
+
   /* The axis belongs to the two timeline views but means nothing on
      the map, which has no time in it at all. So it fades out with
      them rather than being drawn unconditionally. */
@@ -2038,7 +2259,11 @@ function updateCounter() {
 
   let n = 0;
 
-  if (VIEW.stage >= 1.5) {
+  if (VIEW.stage >= 2.5) {
+    // The scatter counts papers the retraction did not slow at all.
+    n = RATES_FASTER;
+
+  } else if (VIEW.stage >= 1.5) {
     // The second ring counts transmission paths, not citations.
     n = TREE ? TREE.gen2_paths_after : 0;
 
@@ -2067,7 +2292,8 @@ function updateCounter() {
   // means citations in two views and papers in the third, and an
   // unchanged label would make the map's number a lie.
   const label =
-      VIEW.stage >= 1.5 ? 'second-hand citations after retraction'
+      VIEW.stage >= 2.5 ? `of ${RATES.length} cited faster after retraction`
+    : VIEW.stage >= 1.5 ? 'second-hand citations after retraction'
     : VIEW.stage >= 0.5 ? 'retracted papers located'
     :                     'citations after retraction';
   swapText(labelEl, label);
@@ -2080,7 +2306,8 @@ function updateCounter() {
      on almost every frame while counting, and fading it then would
      strobe. The band only changes when the view does, so this
      fires exactly once per change and the count itself is untouched. */
-  const band = VIEW.stage >= 1.5 ? 2
+  const band = VIEW.stage >= 2.5 ? 3
+             : VIEW.stage >= 1.5 ? 2
              : VIEW.stage >= 0.5 ? 1 : 0;
 
   if (band !== lastBand) {
@@ -2117,12 +2344,60 @@ const anim = {
   revealMs: 0,      // the reveal clock, which the hold can freeze
   lastNow:  0,      // timestamp of the previous frame
   holdUntil: 0,     // wall-clock time the beat ends
-  axisMs:    0,     // clocks for the two intros below
+  axisMs:    0,     // clocks for the intros below
   mapMs:     0,
+  ratesMs:   0,
   struckAt: null,   // wall-clock time the stamp landed
   frameId:  0,
   stageTarget: 0,   // which view the scroll is heading for
 };
+
+/* RATES: every paper as a pair of speeds.
+
+   The raw posthumous share is inflated and we say so, so the page has
+   to show the corrected version rather than only assert it. A paper's
+   before-rate is its pre-retraction citations spread over the years it
+   was valid, its after-rate the same for the years since. The ratio of
+   the two is what retraction actually did to it.
+
+   Three exclusions, all of them for want of a denominator rather than
+   for being inconvenient: a paper retracted in its own publication
+   year has no valid period to measure, and one never cited before has
+   a rate of zero to divide by. 205 of the 300 survive, and the copy
+   says so on the page.
+
+   Computed here, once, from the same file the first view draws, so the
+   scatter and the fan can never disagree about a paper. */
+let RATES = [];
+let RATES_FASTER = 0;
+let RATES_MEDIAN = 0;
+
+function buildRates() {
+  RATES = [];
+
+  for (let i = 0; i < PAPERS.length; i++) {
+    const p = PAPERS[i];
+
+    const years = Object.keys(p.citations_by_year).map(Number);
+    if (!years.length) continue;
+
+    const validYears = p.retracted_year - p.published_year;
+    const deadYears  = Math.max(...years) - p.retracted_year + 1;
+    if (validYears <= 0 || deadYears <= 0 || p.citations_before <= 0) continue;
+
+    const before = p.citations_before / validYears;
+    const after  = p.citations_after  / deadYears;
+
+    RATES.push({ i, title: p.title, before, after, ratio: after / before });
+  }
+
+  RATES_FASTER = RATES.filter(r => r.ratio > 1).length;
+
+  const sorted = RATES.map(r => r.ratio).sort((a, b) => a - b);
+  RATES_MEDIAN = sorted.length
+    ? sorted[Math.floor(sorted.length / 2)]
+    : 0;
+}
 
 /* Put a different paper on the stand.
 
@@ -2215,6 +2490,12 @@ function frame(now) {
   anim.mapMs = Math.max(0, Math.min(MAP_IN_MS, anim.mapMs + (toMap ? dt : -dt * 2)));
   VIEW.mapReveal = easeOutCubic(anim.mapMs / MAP_IN_MS);
 
+  // The scatter fills the same way, on its own clock.
+  const toRates = anim.stageTarget === 3;
+  anim.ratesMs = Math.max(0,
+    Math.min(RATES_IN_MS, anim.ratesMs + (toRates ? dt : -dt * 2)));
+  VIEW.ratesReveal = easeOutCubic(anim.ratesMs / RATES_IN_MS);
+
   const p = clamp01(anim.revealMs / DURATION_MS);
 
   // The reveal front, in years. Runs from publication to just past the
@@ -2260,7 +2541,8 @@ function frame(now) {
   // Keep going while EITHER the reveal or the crossfade has work left.
   // Stopping on the reveal alone would freeze a half-finished fade.
   const introsDone = anim.axisMs >= AXIS_IN_MS &&
-                     (toMap ? anim.mapMs >= MAP_IN_MS : anim.mapMs <= 0);
+                     (toMap   ? anim.mapMs   >= MAP_IN_MS   : anim.mapMs   <= 0) &&
+                     (toRates ? anim.ratesMs >= RATES_IN_MS : anim.ratesMs <= 0);
 
   if (p >= 1 && VIEW.stage === anim.stageTarget && introsDone) {
     anim.running = false;     // hold the final frame
@@ -2400,9 +2682,10 @@ document.getElementById('reset').addEventListener('click', reset);
 function setPrompt(stage) {
   controlsEl.classList.toggle('at-paper', stage === 0);
 
-  swapText(promptEl, stage === 0
-    ? `paper ${PAPER_AT + 1} of ${PAPERS.length} \u00b7 \u2039 \u203a or \u2190 \u2192 for another`
-    : 'one line per citation');
+  swapText(promptEl,
+      stage === 0 ? `paper ${PAPER_AT + 1} of ${PAPERS.length} \u00b7 \u2039 \u203a or \u2190 \u2192 for another`
+    : stage === 3 ? 'one dot per paper'
+    :               'one line per citation');
 }
 
 function setCaption(stage) {
@@ -2413,7 +2696,15 @@ function setCaption(stage) {
   const title = document.getElementById('caption-title');
   const meta  = document.getElementById('caption-meta');
 
-  if (stage === 2) {
+  if (stage === 3) {
+    swapText(title, RATES.length
+      ? `The median paper is cited ${RATES_MEDIAN.toFixed(2)}\u00d7 as fast once retracted`
+      : 'Before and after, per year');
+    swapText(meta, RATES.length
+      ? `${RATES.length} papers with a rate on both sides \u00b7 ` +
+        `${RATES_FASTER} cited faster`
+      : '');
+  } else if (stage === 2) {
     swapText(title, TREE
       ? `Every paper that cited a paper that cited it`
       : 'The second ring');
@@ -2456,7 +2747,7 @@ const steps = [...document.querySelectorAll('.step')];
 
 /* A name per view, so each one has its own URL. Ordered by stage, so
    the stage number indexes straight into it. */
-const VIEW_SLUG = ['paper', 'map', 'rings'];
+const VIEW_SLUG = ['paper', 'map', 'rings', 'rates'];
 
 function goToStage(stage) {
   if (anim.stageTarget === stage) return;
@@ -2697,12 +2988,58 @@ function readRingsAt(clientX, clientY) {
 }
 
 
+/* Nearest paper to the cursor on the scatter.
+
+   Nearest rather than "inside the dot": at three pixels a dot is
+   smaller than most people can point at, and a hover that only
+   answers on a direct hit reads as broken. The cut-off keeps it from
+   claiming a paper from across the plot. */
+let HOVER_RATE = null;
+
+function readRatesAt(clientX, clientY) {
+  if (!RATES_PLOT || !RATES.length) return hideProbe();
+
+  const box = canvas.getBoundingClientRect();
+  const px  = clientX - box.left;
+  const py  = clientY - box.top;
+
+  const { sx, sy } = RATES_PLOT;
+
+  let best = null, bestD2 = Infinity;
+  for (const r of RATES) {
+    const dx = sx(r.before) - px;
+    const dy = sy(r.after)  - py;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) { bestD2 = d2; best = r; }
+  }
+
+  const REACH = Math.max(9, (RATES_PLOT.dotR || RATES_DOT) * 4);
+  if (!best || bestD2 > REACH * REACH) {
+    HOVER_RATE = null;
+    return hideProbe();
+  }
+
+  HOVER_RATE = best;
+
+  const rate = v => v >= 10 ? Math.round(v) : v.toFixed(1);
+  const verdict = best.ratio > 1
+    ? `<b>${best.ratio.toFixed(2)}\u00d7 \u2014 faster</b>`
+    : `${best.ratio.toFixed(2)}\u00d7`;
+
+  showProbe(px, py, best.title,
+    `${rate(best.before)}/yr while valid \u00b7 ` +
+    `${rate(best.after)}/yr after \u00b7 ${verdict}`);
+  draw();
+}
+
+
 /* One entry point; the view decides what a cursor position means. */
 function probeAt(clientX, clientY) {
   const st = VIEW.stage;
   if (st < 0.5)      return readPaperAt(clientX, clientY);
   if (st <= 1.5)     return readMapAt(clientX, clientY);
-  return readRingsAt(clientX, clientY);
+  if (st <= 2.5)     return readRingsAt(clientX, clientY);
+  return readRatesAt(clientX, clientY);
 }
 
 let HOVER_CELL = null;
@@ -2781,6 +3118,7 @@ fetch('papers.json')
   })
   .then(papers => {
     PAPERS = papers;
+    buildRates();
 
     PAPER = papers.find(p => p.id === PAPER_ID) || papers[PAPER_INDEX];
 
