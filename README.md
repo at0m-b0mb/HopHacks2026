@@ -41,6 +41,8 @@ python3 -m http.server 5173     # then open http://localhost:5173
 
 </div>
 
+<img src="images/1-one-paper.jpg" alt="One paper's citations, grey before the retraction and red after, with the readout open on 2019" width="100%">
+
 91,713 of 144,992 citations to these 300 retracted papers arrived after the
 paper was withdrawn.
 
@@ -52,6 +54,8 @@ papers are cited *faster* per year after being withdrawn than before.
 
 > Retraction cuts the citation rate by about a third.
 > It does not stop it. Roughly a third of papers accelerate.
+
+<img src="images/4-the-number.jpg" alt="Citation rate before retraction against rate after on log axes, with the diagonal where nothing changed and the 0.62x median line below it" width="100%">
 
 That version survives the first hard question. "Retraction has no effect"
 does not.
@@ -74,6 +78,8 @@ published 2014, retracted 2019:
 | **ring 1** — cite it directly | 1,888 | 947 |
 | **ring 2** — cite something that cites it | **57,765** | **52,341** |
 
+<img src="images/3-two-rings.jpg" alt="Two ring series drawn at the same scale, with the readout on 2026 showing 396 second-hand citations per direct one" width="100%">
+
 Per year, the two rings move in **opposite directions**. Counting
 transmission paths, direct citation peaks at 307 a year in 2018 and **falls
 to 12** by 2026. Second-hand citation is 2,926 in 2018 and **climbs to
@@ -92,6 +98,8 @@ citations for every direct one. By 2026 there are **396**.
 | worst neighbourhood | **10.7%** — 188× the average |
 | share of the map holding half of all retractions | **4.3%** (109 of 2,523 cells) |
 | neighbourhoods with no retractions at all | **1,700 of 2,523** |
+
+<img src="images/2-the-map.jpg" alt="3.4 million papers placed by subject, with the readout naming the worst neighbourhood as pharmacology at 10.7%" width="100%">
 
 Hovering the worst one names it: **pharmacology**.
 
@@ -231,6 +239,7 @@ the data starts in 2012 rather than 1995.
 | `index.html` | the whole page — vanilla JS, no build step, no dependencies |
 | `banner.svg` | the mark at the top of this file, drawn from the same rules as the page |
 | `og.png` | the link preview, rendered from that banner |
+| `images/*.jpg` | the four views above, captured from the live page with the readouts open |
 | `favicon.svg` | the tab mark: an axis, a publication dot, a retraction |
 | `papers.json` | 300 retracted papers with citations per year |
 | `landscape.json` | 3.4M paper positions, 1,925 retracted, per-neighbourhood rates, 94 subject labels |
