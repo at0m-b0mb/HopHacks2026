@@ -656,11 +656,13 @@ body {
 
    One paper drawn as a fan of citation lines, faded before the
    retraction and red after it, with the stamp landing at the year the
-   claim was withdrawn. Press F, the space bar, or click the drawing to
-   pull back to the whole field of papers.
+   claim was withdrawn. Scrolling moves on to where retractions sit on
+   a map of the literature, and then to the ring of papers citing the
+   papers that cited it.
 
-   Data: papers.json, produced by fetch_papers.py from OpenAlex
-   (citations per year) and Crossref (retraction dates).
+   Data: papers.json, tree_hero.json and landscape.json, produced by
+   the fetch_*.py scripts from OpenAlex (citations per year), Crossref
+   (retraction dates) and the Nomic PubMed landscape (positions).
    ==================================================================== */
 
 /* --------------------------------------------------------------------
@@ -749,23 +751,7 @@ const DROP_START       = 0.45;   // point in the impact the drop line begins
 const FIELD_TOP_FRACTION = 0.13; // top of the stacked rows
 const FIELD_FADE_MS      = 420;  // crossfade between views
 const MAX_FRAME_MS       = 100;  // biggest step the clock will take
-/* Views in the toggle cycle: paper, field, map.
-
-   Set to 4 to re-enable the second-ring view, which is written and
-   working below but is NOT in the cycle by default. Its data is real
-   and its numbers are exact, but it does not read: 65,736 branches
-   and 1,888 direct citations occupy the same bounded area, so the
-   only difference available to the eye is density, and density
-   saturates long before thirty-five times. The amplification is not
-   expressible in this geometry. It is a far better spoken sentence
-   than it is a picture, so it lives in the pitch instead. */
-/* Views in the toggle cycle: one paper, the map, the two rings.
-
-   The three-hundred-row field view was cut. It was honest and it was
-   pretty, but at 1.6px per row nobody could read an individual paper
-   out of it, and the story it told — that this is not one paper — is
-   carried better by a sentence than by a picture you have to be
-   talked through. */
+/* The three views, in scroll order: one paper, the map, the two rings. */
 
 const AXIS_IN_MS         = 900;  // the rule drawing itself across
 const MAP_IN_MS          = 1400; // the retracted papers landing on the map
@@ -1004,9 +990,9 @@ const easeOutCubic  = p => 1 - Math.pow(1 - p, 3);
 
      frontier — reveal citations whose t is at or before this year
      press    — 0..1, how far the stamp has landed (0 = not yet struck)
-     stage    — which view: 0 one paper, 1 the whole field,
-                 2 the map of biomedical research. Fractional values
-                 are the crossfade between neighbours.
+     stage    — which view: 0 one paper, 1 the map of biomedical
+                 research, 2 the two rings. Fractional values are the
+                 crossfade between neighbours.
      dim      — multiplier on the pre-retraction fan, 1 until the strike
    -------------------------------------------------------------------- */
 
@@ -1025,7 +1011,7 @@ const VIEW = {
 const REDUCED_MOTION =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/* Crossfading the two views means drawing both at partial opacity. But
+/* Crossfading between views means drawing two at partial opacity. But
    globalAlpha REPLACES rather than multiplies, so a drawing function
    that sets its own opacity would wipe out the crossfade. Everything
    below therefore goes through setAlpha(), which folds the two
@@ -1092,7 +1078,7 @@ function layout() {
    resize re-maps the same fan instead of generating a different one.
    -------------------------------------------------------------------- */
 
-let PAPERS    = [];   // every record, for the field view
+let PAPERS    = [];   // every record; the arrow keys step through them
 let PAPER_AT  = 0;    // which one is on the stand
 let PAPER     = null;  // the one on show in the single view
 let LINES     = [];
@@ -2062,7 +2048,7 @@ function updateCounter() {
 
      Keyed to the BAND rather than to the number: the number changes
      on almost every frame while counting, and fading it then would
-     strobe. The band only changes when you toggle views, so this
+     strobe. The band only changes when the view does, so this
      fires exactly once per change and the count itself is untouched. */
   const band = VIEW.stage >= 1.5 ? 2
              : VIEW.stage >= 0.5 ? 1 : 0;
@@ -2105,7 +2091,7 @@ const anim = {
   mapMs:     0,
   struckAt: null,   // wall-clock time the stamp landed
   frameId:  0,
-  stageTarget: 0,   // which view the toggle is heading for
+  stageTarget: 0,   // which view the scroll is heading for
 };
 
 /* Put a different paper on the stand.
@@ -2172,7 +2158,7 @@ function frame(now) {
   if (now >= anim.holdUntil) anim.revealMs += dt;
 
   // The view crossfade runs on the same clock, moving towards whatever
-  // the toggle last asked for.
+  // the scroll position last asked for.
   if (VIEW.stage !== anim.stageTarget) {
     const stepSize = dt / FIELD_FADE_MS;
     VIEW.stage = anim.stageTarget > VIEW.stage
@@ -2722,7 +2708,7 @@ fetch('papers.json')
 /* The map loads separately and on its own schedule. It is a third of a
    megabyte and the third view, so nothing on screen should wait for
    it: if it is slow the first two views are already running, and if it
-   never arrives the toggle simply has one fewer stop. */
+   never arrives the scroll simply has one fewer stop. */
 /* The transmission tree for the featured paper. Turned into drawable
    geometry once, here, rather than every frame: 65,736 branches is
    too many to be laying out inside the draw loop.
@@ -2774,7 +2760,7 @@ fetch('landscape.json')
     LAND = land;
 
     // Precomputed here rather than in the caption, so the arithmetic
-    // happens once instead of on every toggle.
+    // happens once instead of on every view change.
     const cells = [...land.cells].sort((a, b) => (b.r / b.n) - (a.r / a.n));
     const total = cells.reduce((t, c) => t + c.r, 0);
     let run = 0, k = 0;
