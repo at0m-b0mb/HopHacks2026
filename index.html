@@ -3161,7 +3161,15 @@ const NARRATION = [
 
 const listenEl = document.getElementById('listen');
 
-let narrationOn = false;
+/* ON by default. Browsers will not honour that on their own: audible
+   playback needs a user gesture, and a page load is not one. So the
+   intent is on from the start, the first attempt usually fails, and
+   the first tap or key press the reader makes starts it.
+
+   The label follows what is ACTUALLY coming out of the speakers, not
+   what we intended. A button reading "Stop" over silence is worse
+   than one reading "Listen". */
+let narrationOn = true;
 let narrationAt = -1;          // segment currently playing; -1 is none
 let narrationTracks = [];
 
@@ -3170,6 +3178,12 @@ let narrationTracks = [];
    the opening; every other section is its stage, shifted by one. */
 function narrationSection() {
   return document.querySelector('.step.active') ? anim.stageTarget + 1 : 0;
+}
+
+function syncListen() {
+  const playing = narrationTracks.some(a => !a.paused);
+  listenEl.textContent = playing ? 'Stop' : 'Listen';
+  listenEl.setAttribute('aria-pressed', String(playing));
 }
 
 function narrate() {
@@ -3185,23 +3199,40 @@ function narrate() {
   if (!track) return;
 
   track.currentTime = 0;
-  // Rejects if the browser declines or the file is missing. Neither
-  // is worth interrupting the page for.
-  track.play().catch(() => {});
+  track.play().then(syncListen).catch(() => {
+    /* Refused — almost always the autoplay policy, before the reader
+       has touched anything. Forget the segment we picked, so the
+       first gesture is a real change and starts it rather than being
+       swallowed as "already playing that one". */
+    narrationAt = -1;
+    syncListen();
+  });
 }
 
-listenEl.addEventListener('click', () => {
-  narrationOn = !narrationOn;
+/* The first gesture is what the autoplay policy was waiting for.
+   Left attached rather than once-only: the very first tap might land
+   while the audio is still arriving, and narrate() is a no-op once
+   something is playing, so retrying costs nothing. */
+const armNarration = () => narrate();
+window.addEventListener('pointerdown', armNarration, { passive: true });
+window.addEventListener('keydown', armNarration);
 
-  listenEl.textContent = narrationOn ? 'Stop' : 'Listen';
-  listenEl.setAttribute('aria-pressed', String(narrationOn));
+listenEl.addEventListener('click', () => {
+  const playing = narrationTracks.some(a => !a.paused);
+
+  // Toggle against what is audible, so the button always does the
+  // opposite of what you can currently hear.
+  narrationOn = !playing;
 
   if (narrationOn) {
+    narrationAt = -1;            // force narrate() to treat this as a change
     narrate();
   } else {
     narrationTracks.forEach(a => a.pause());
     narrationAt = -1;
   }
+
+  syncListen();
 });
 
 /* Scrolling back up to the opening is not a stage change, so the
@@ -3217,9 +3248,16 @@ fetch(NARRATION[0], { method: 'HEAD' })
     narrationTracks = NARRATION.map(src => {
       const a = new Audio(src);
       a.preload = 'none';
+      // Keep the label truthful if a track ends or is paused elsewhere.
+      a.addEventListener('ended', syncListen);
+      a.addEventListener('pause', syncListen);
       return a;
     });
     listenEl.hidden = false;
+    syncListen();
+
+    // Try straight away. If the policy refuses, armNarration has it.
+    narrate();
   })
   .catch(() => {});
 
