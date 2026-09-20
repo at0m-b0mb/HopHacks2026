@@ -124,6 +124,20 @@ html {
   background: var(--stamp);
 }
 
+/* Demo mode is for filming, so the two things that address a reader
+   directly go away: the cue telling them to scroll, and the controls
+   they are not going to touch. */
+body.demo .scroll-cue,
+body.demo .controls {
+  /* animation:none as well as opacity, because .controls carries
+     riseIn with fill-mode both, and an animation's final keyframe
+     beats a plain declaration in the cascade. Setting opacity alone
+     left the controls fully visible in the recording. */
+  animation: none !important;
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
 @keyframes riseIn {
   from { opacity: 0; transform: translateY(26px); }
   to   { opacity: 1; transform: none; }
@@ -3499,6 +3513,65 @@ fetch(NARRATION[0], { method: 'HEAD' })
     narrate();
   })
   .catch(() => {});
+
+
+/* --------------------------------------------------------------------
+   DEMO MODE  (?demo=1)
+
+   The page performs itself, on the clock of its own narration, so a
+   silent screen recording can have the audio laid under it afterwards
+   and land in sync without anyone editing anything.
+
+   The marks are where each recording starts, measured with ffprobe
+   from the files in devpost/video-audio/ rather than typed by hand:
+   26.05, 37.76, 31.30, 48.34, 40.40 seconds, cumulative.
+
+   The audio is deliberately NOT played here. Capturing what a page is
+   playing needs a loopback device most machines do not have, so the
+   recording is made silent on purpose and the narration is muxed on
+   afterwards from the same files these timings came from.
+   -------------------------------------------------------------------- */
+
+const DEMO_MARKS = [0, 26.05, 63.81, 95.11, 143.45];
+const DEMO_LEAD  = 0.8;   // arrive just before the words do
+const DEMO_END   = 183.86;
+
+function runDemo() {
+  // The page's own voice would fight the track we lay on later.
+  narrationOn = false;
+  narrationTracks.forEach(a => a.pause());
+  if (listenEl) { listenEl.classList.remove('waiting'); listenEl.hidden = true; }
+
+  // Snapping fights a scripted scroll; it has nothing to do here.
+  document.documentElement.style.scrollSnapType = 'none';
+  document.body.classList.add('demo');
+
+  window.scrollTo({ top: 0, behavior: 'instant' });
+
+  steps.forEach((step, i) => {
+    const at = Math.max(0, DEMO_MARKS[i + 1] - DEMO_LEAD);
+    setTimeout(() => {
+      const box = step.getBoundingClientRect();
+      window.scrollTo({
+        top: box.top + window.scrollY + box.height / 2 - window.innerHeight / 2,
+        behavior: 'smooth',
+      });
+      // The first view has a reveal to perform, not just a position.
+      if (i === 0) setTimeout(play, 900);
+    }, at * 1000);
+  });
+
+  setTimeout(() => {
+    document.body.classList.add('demo-done');
+  }, DEMO_END * 1000);
+}
+
+if (new URLSearchParams(location.search).has('demo')) {
+  // After the data has landed, or the first view would perform empty.
+  const waitForData = setInterval(() => {
+    if (PAPERS.length && TREE && LAND) { clearInterval(waitForData); runDemo(); }
+  }, 120);
+}
 
 
 /* One entry point; the view decides what a cursor position means. */

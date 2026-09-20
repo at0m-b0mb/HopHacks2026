@@ -120,6 +120,15 @@ def main():
     ap.add_argument("--voices", action="store_true", help="list voices and exit")
     ap.add_argument("--models", action="store_true", help="list models and exit")
     ap.add_argument("--force", action="store_true", help="re-render existing files")
+    ap.add_argument("--src", default="narration", help="folder of .txt segments")
+    ap.add_argument("--out", default="audio", help="folder to write .mp3 into")
+
+    ap.add_argument("--stability", type=float,
+                    help="0 is most expressive, 1 is most consistent. "
+                         "Lower it for a warmer, more varied read.")
+    ap.add_argument("--similarity", type=float, default=0.75)
+    ap.add_argument("--style", type=float,
+                    help="0 to 1. Raise it for more performance in the delivery.")
     args = ap.parse_args()
 
     if not API_KEY:
@@ -138,15 +147,18 @@ def main():
             "  python3 make_narration.py --voices\n"
             "  python3 make_narration.py --voice <voice_id>")
 
-    segments = sorted(SRC_DIR.glob("*.txt"))
-    if not segments:
-        raise SystemExit(f"no segments in {SRC_DIR}/")
+    src_dir = pathlib.Path(args.src)
+    out_dir = pathlib.Path(args.out)
 
-    OUT_DIR.mkdir(exist_ok=True)
+    segments = sorted(src_dir.glob("*.txt"))
+    if not segments:
+        raise SystemExit(f"no segments in {src_dir}/")
+
+    out_dir.mkdir(parents=True, exist_ok=True)
     total = 0
 
     for seg in segments:
-        out = OUT_DIR / (seg.stem + ".mp3")
+        out = out_dir / (seg.stem + ".mp3")
 
         if out.exists() and out.stat().st_size > 0 and not args.force:
             print(f"  {out}  exists, skipping", file=sys.stderr)
@@ -156,8 +168,22 @@ def main():
         total += len(text)
         print(f"  {seg.name}  {len(text):,} characters", file=sys.stderr)
 
+        payload = {"text": text, "model_id": args.model}
+
+        # Only sent when asked for, so the voice's own defaults stand
+        # otherwise. Lower stability reads warmer and less even, which
+        # suits a narration meant to be listened to rather than
+        # checked.
+        if args.stability is not None or args.style is not None:
+            payload["voice_settings"] = {
+                "stability": 0.4 if args.stability is None else args.stability,
+                "similarity_boost": args.similarity,
+                "style": 0.0 if args.style is None else args.style,
+                "use_speaker_boost": True,
+            }
+
         audio = call(f"text-to-speech/{args.voice}",
-                     payload={"text": text, "model_id": args.model},
+                     payload=payload,
                      params=f"?output_format={args.format}")
 
         # Written aside and moved into place, so an interrupted run
