@@ -209,11 +209,7 @@ body {
 
 .display {
   margin: 0;
-  /* The wordmark alone is set in Georgia rather than the display face
-     the rest of the page uses. At the same size it sets about a
-     quarter wider with much heavier stems, and the masthead wants that
-     weight; every other heading stays on --display. */
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--display);
   font-size: clamp(56px, 11vw, 132px);
   line-height: 0.92;
   font-weight: 400;
