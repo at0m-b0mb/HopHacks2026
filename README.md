@@ -47,7 +47,7 @@ python3 -m http.server 5173     # then open http://localhost:5173
 paper was withdrawn.
 
 **The third number is the one to lead with**, and it is the reason to trust
-the rest. The median paper here spent 2 years valid and 4 years retracted, so
+the rest. The median paper here spent 2 years valid and 5 years retracted, so
 it simply had longer to accumulate posthumous citations. Normalise for that
 and the median paper's citation rate falls to **0.62×** — and **63 of 205**
 papers are cited *faster* per year after being withdrawn than before.
