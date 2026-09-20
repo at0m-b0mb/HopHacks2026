@@ -3422,26 +3422,51 @@ let narrationTracks = [];
    actually entered a section. Pressing Listen clears that and plays
    it regardless, because then they did ask. */
 const NOTHING = -1;
-let openingSpent = false;
+let openingHeard = false;   // segment 0 has run to the end
+let asked        = false;   // the reader pressed Listen
 
+/* The voice starts at the FIRST GRAPH, not over the title.
+
+   Nothing plays while the title is up: a page that begins talking at
+   someone who has only just arrived is startling, and on a desktop it
+   cannot legally start there anyway. Reaching the first graph is the
+   moment the reader has committed, so that is where segment 0 begins,
+   and segment 1 follows the instant it ends. The two are written as
+   one thought - segment 1 opens "This is one of them", which only
+   parses after segment 0's "ninety-one thousand arrived after" - so
+   they must not be split across a scroll.
+
+   Position decides, never the active class on its own. The observer
+   reports CROSSINGS, so a fast flick can leave the last step marked
+   active after it has gone by, and reading that first would keep the
+   narration going over a section that has left the screen. */
 function narrationSection() {
-  /* Position decides first, and the class only breaks ties. The
-     observer reports CROSSINGS, so a fast flick or a scripted jump can
-     leave the last step still marked active after it has gone by; if
-     that stale class were read first, walking off either end of the
-     page would keep narrating a section that is no longer on screen.
-     These two bounds are the same band the observer watches. */
-  const band = window.innerHeight * 0.45;
+  const band  = window.innerHeight * 0.45;
   const first = steps[0], last = steps[steps.length - 1];
 
-  if (last && last.getBoundingClientRect().bottom <= band) {
-    return NOTHING;                       // past the end: the methods text
-  }
+  if (last && last.getBoundingClientRect().bottom <= band) return NOTHING;
+
   if (first && first.getBoundingClientRect().top >= window.innerHeight * 0.55) {
-    return openingSpent ? NOTHING : 0;    // above the first step: the title
+    // the title: silent, unless they asked for it and have not heard it
+    return (asked && !openingHeard) ? 0 : NOTHING;
   }
-  if (document.querySelector('.step.active')) return anim.stageTarget + 1;
-  return openingSpent ? NOTHING : 0;
+
+  /* Work out which step owns the middle of the screen from geometry
+     rather than from the active class. The class is set by the
+     observer, which reports crossings; a flick, a jump or a restored
+     scroll position can leave it stale or unset while a step is
+     plainly on screen, and the voice would then say nothing at all. */
+  const mid = window.innerHeight / 2;
+  let here = -1;
+  for (let i = 0; i < steps.length; i++) {
+    const r = steps[i].getBoundingClientRect();
+    if (r.top <= mid && r.bottom >= mid) { here = i; break; }
+  }
+  if (here < 0) return NOTHING;
+
+  const stage = Number(steps[here].dataset.stage);
+  if (stage === 0 && !openingHeard) return 0;   // the first graph opens the piece
+  return stage + 1;
 }
 
 function syncListen() {
@@ -3466,7 +3491,6 @@ function narrate() {
   narrationTracks.forEach(a => a.pause());
   narrationAt = i;
 
-  if (i >= 1) openingSpent = true;
 
   const track = narrationTracks[i];
   if (!track) { syncListen(); return; }   // NOTHING, or a file that never loaded
@@ -3479,6 +3503,9 @@ function narrate() {
      succeeded — leaving a track playing while the code believed
      nothing was. */
   const mine = i;
+
+  const next = narrationTracks[i + 1];
+  if (next && next.preload !== 'auto') { next.preload = 'auto'; next.load(); }
 
   track.play().then(syncListen).catch(err => {
     /* Only the autoplay policy earns a retry. Clearing the segment on
@@ -3509,6 +3536,7 @@ const armNarration = e => {
    scroll into the first view. A mouse wheel grants nothing, which is
    why the button pulses on the desktop until it is pressed. */
 window.addEventListener('pointerdown', armNarration, { passive: true });
+window.addEventListener('pointerup',   armNarration, { passive: true });
 window.addEventListener('touchstart',  armNarration, { passive: true });
 window.addEventListener('keydown',     armNarration);
 window.addEventListener('click',       armNarration);
@@ -3522,7 +3550,7 @@ listenEl.addEventListener('click', () => {
 
   if (narrationOn) {
     narrationAt = -1;            // force narrate() to treat this as a change
-    openingSpent = false;        // an explicit ask outranks "already heard it"
+    asked = true;                // pressing Listen at the title is asking for it
     narrate();
   } else {
     narrationTracks.forEach(a => a.pause());
@@ -3542,11 +3570,19 @@ window.addEventListener('scroll', () => narrate(), { passive: true });
 fetch(NARRATION[0], { method: 'HEAD' })
   .then(r => {
     if (!r.ok) return;
-    narrationTracks = NARRATION.map(src => {
+    narrationTracks = NARRATION.map((src, i) => {
       const a = new Audio(src);
-      a.preload = 'none';
+      /* The opening is the one we are most likely to need, and the
+         cost of being wrong is a single file. The rest stay cold until
+         something warms them. */
+      a.preload = i === 0 ? 'auto' : 'none';
       // Keep the label truthful if a track ends or is paused elsewhere.
-      a.addEventListener('ended', syncListen);
+      a.addEventListener('ended', () => {
+        /* Segment 0 is the run-up to segment 1, so it hands over on
+           its own rather than waiting for another scroll. */
+        if (i === 0) { openingHeard = true; narrationAt = -1; narrate(); }
+        syncListen();
+      });
       a.addEventListener('pause', syncListen);
       return a;
     });
