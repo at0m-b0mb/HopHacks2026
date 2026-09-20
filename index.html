@@ -555,9 +555,14 @@ body {
 .controls button::after {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -5px;
+  /* Inset to match the label. These buttons carry 15px of padding and
+     10px either side purely to make a 44px thumb target; the rule is
+     decoration on the WORD, so it has to sit where the word is. Left
+     at the padding box it dropped 15px lower and ran the full inflated
+     width, which put a line straight through the prompt underneath. */
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
   height: 1px;
   background: currentColor;
   transform: scaleX(1);
@@ -588,7 +593,9 @@ body {
      was, which makes every overlap test lie. */
   width: max-content;
   max-width: 100%;
-  margin: 14px auto 0;
+  /* The row above is 44px of touch target, so its box ends much closer
+     than its text does. Measured 2.3px of clearance before this. */
+  margin: 24px auto 0;
   font-family: var(--data);
   font-size: 10px;
   letter-spacing: 0.16em;
@@ -598,7 +605,9 @@ body {
 
 .controls button:focus-visible {
   outline: 1px solid var(--ink-soft);
-  outline-offset: 5px;
+  /* 5px cleared the old compact button but hangs past the padded one
+     and lands on the prompt. */
+  outline-offset: 1px;
 }
 
 /* Stepping through the three hundred papers used to be arrow keys and
@@ -3396,11 +3405,43 @@ let narrationOn = true;
 let narrationAt = -1;          // segment currently playing; -1 is none
 let narrationTracks = [];
 
-/* Which recording belongs to what is on screen. No step is crossing
-   the observer's band while the opening is up, so that absence IS
-   the opening; every other section is its stage, shifted by one. */
+/* Which recording belongs to what is on screen. Every section is its
+   stage, shifted by one.
+
+   No step crosses the observer's band in two different places, and
+   they do not mean the same thing: above the first step is the
+   opening, but below the last one is the methods section, which has
+   no recording. Reading both as "the opening" meant scrolling off the
+   bottom of the page started the narration again from the top, over a
+   wall of text with no drawing on screen at all. Below the end now
+   returns NOTHING and the page falls silent.
+
+   The same absence is read once more on the way back up. Having heard
+   the whole piece, returning to the title should not set it going
+   again unasked, so the opening is offered only until the reader has
+   actually entered a section. Pressing Listen clears that and plays
+   it regardless, because then they did ask. */
+const NOTHING = -1;
+let openingSpent = false;
+
 function narrationSection() {
-  return document.querySelector('.step.active') ? anim.stageTarget + 1 : 0;
+  /* Position decides first, and the class only breaks ties. The
+     observer reports CROSSINGS, so a fast flick or a scripted jump can
+     leave the last step still marked active after it has gone by; if
+     that stale class were read first, walking off either end of the
+     page would keep narrating a section that is no longer on screen.
+     These two bounds are the same band the observer watches. */
+  const band = window.innerHeight * 0.45;
+  const first = steps[0], last = steps[steps.length - 1];
+
+  if (last && last.getBoundingClientRect().bottom <= band) {
+    return NOTHING;                       // past the end: the methods text
+  }
+  if (first && first.getBoundingClientRect().top >= window.innerHeight * 0.55) {
+    return openingSpent ? NOTHING : 0;    // above the first step: the title
+  }
+  if (document.querySelector('.step.active')) return anim.stageTarget + 1;
+  return openingSpent ? NOTHING : 0;
 }
 
 function syncListen() {
@@ -3425,8 +3466,10 @@ function narrate() {
   narrationTracks.forEach(a => a.pause());
   narrationAt = i;
 
+  if (i >= 1) openingSpent = true;
+
   const track = narrationTracks[i];
-  if (!track) return;
+  if (!track) { syncListen(); return; }   // NOTHING, or a file that never loaded
 
   track.currentTime = 0;
 
@@ -3479,6 +3522,7 @@ listenEl.addEventListener('click', () => {
 
   if (narrationOn) {
     narrationAt = -1;            // force narrate() to treat this as a change
+    openingSpent = false;        // an explicit ask outranks "already heard it"
     narrate();
   } else {
     narrationTracks.forEach(a => a.pause());
