@@ -2719,7 +2719,33 @@ function loadPaper(index) {
   void cap.offsetWidth;
   cap.style.animation = '';
 
-  if (REDUCED_MOTION) showFinalFrame(); else play();
+  /* The reveal used to start here, on load, while the reader was still
+     on the title. It runs for eight seconds, so anyone who read the
+     opening before scrolling arrived at a chart that had already
+     finished and never saw the one thing it exists to show. Hold it at
+     frame zero and let the scroll start it. */
+  if (REDUCED_MOTION)          showFinalFrame();
+  else if (firstGraphInView()) { revealPending = false; play(); }
+  else                         { revealPending = true;  reset(); }
+}
+
+/* Deliberately generous: any real overlap counts. The point is to be
+   already running by the time the reader settles on it, not to wait
+   until it is perfectly centred. Asks the DOM rather than the `steps`
+   array, because this is called during init, before that is bound. */
+function firstGraphInView() {
+  const s = document.querySelector('.step');
+  if (!s) return false;
+  const r = s.getBoundingClientRect(), H = window.innerHeight;
+  if (!H) return false;
+  return r.top < H * 0.8 && r.bottom > H * 0.2;
+}
+
+function startRevealIfSeen() {
+  if (!revealPending || REDUCED_MOTION) return;
+  if (!firstGraphInView()) return;
+  revealPending = false;
+  play();
 }
 
 function firstYear() {
@@ -2853,6 +2879,9 @@ function wake() {
   anim.lastNow = performance.now();
   anim.frameId = requestAnimationFrame(frame);
 }
+
+/* Set when the fan is loaded but its graph is not on screen yet. */
+let revealPending = false;
 
 function play() {
   cancelAnimationFrame(anim.frameId);
@@ -3088,6 +3117,11 @@ const stepWatcher = new IntersectionObserver(entries => {
   const current = steps.find(st => visibleSteps.has(st));
   steps.forEach(st => st.classList.toggle('active', st === current));
   if (current) narrate();
+
+  /* Two independent ways in, because neither is reliable alone: the
+     observer can miss a fast flick, and a scroll event can be
+     coalesced away. Both funnel into the same guarded call. */
+  startRevealIfSeen();
 
   for (const e of entries) {
     if (!e.isIntersecting) continue;
@@ -3563,7 +3597,12 @@ listenEl.addEventListener('click', () => {
 /* Scrolling back up to the opening is not a stage change, so the
    observer never fires for it. Checked here instead; narrate() exits
    immediately when the section has not actually changed. */
-window.addEventListener('scroll', () => narrate(), { passive: true });
+window.addEventListener('scroll', () => { startRevealIfSeen(); narrate(); },
+                        { passive: true });
+
+/* And once after layout settles, for a reader who arrives already
+   scrolled down, on a deep link or a restored position. */
+requestAnimationFrame(() => requestAnimationFrame(startRevealIfSeen));
 
 /* Offer the control only once the first file has answered. HEAD, so
    this costs a header exchange rather than the audio itself. */
